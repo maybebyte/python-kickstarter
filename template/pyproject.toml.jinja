@@ -87,3 +87,40 @@ typeCheckingMode = "strict"
 pythonVersion = "{{ python_version }}"
 include = ["src", "tests"]
 reportMissingImports = "error"
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+{% if project_type == "application" -%}
+pythonpath = ["src"]
+{% endif -%}
+markers = [
+    "property: property-based Hypothesis tests (deselect with -m 'not property')",
+]
+addopts = [
+    "-q",
+    "--strict-markers",
+    "--strict-config",
+    "--import-mode=importlib",
+    "--cov={{ package_name }}",
+    "--cov-branch",
+    "--cov-report=term-missing",
+    "--cov-report=xml",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["{{ package_name }}"]
+
+[tool.coverage.paths]
+source = ["src/{{ package_name }}", "*/site-packages/{{ package_name }}"]
+
+[tool.coverage.report]
+fail_under = {{ coverage_floor }}
+show_missing = true
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "@(abc\\.)?abstractmethod",
+]
