@@ -104,3 +104,15 @@ def test_precommit_install_task_runs(template_root, tmp_path: Path) -> None:
     )
     assert (dst / ".git" / "hooks" / "pre-commit").exists()
     assert (dst / ".git" / "hooks" / "pre-push").exists()
+
+
+def test_agent_contract(render, tmp_path: Path) -> None:
+    full = {**MINIMAL, "enable_property_tests": True, "enable_policy_tests": True}
+    project = render(full, tmp_path / "out")
+    assert (project / "CLAUDE.md").read_text().strip() == "@AGENTS.md"
+    agents = (project / "AGENTS.md").read_text()
+    assert "just ci" in agents
+    assert agents.count("\n") < 200  # instruction budget
+    # Disabled layers emit nothing.
+    minimal = render(MINIMAL, tmp_path / "out2")
+    assert "tests/property" not in (minimal / "AGENTS.md").read_text()
