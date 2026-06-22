@@ -73,3 +73,34 @@ def test_minimal_tests_pass_with_coverage(render, tmp_path: Path) -> None:
 def test_minimal_just_ci_green(render, tmp_path: Path) -> None:
     project = render(MINIMAL, tmp_path / "out")
     run_in(project, "just", "ci")
+
+
+def test_precommit_config_valid(render, tmp_path: Path) -> None:
+    project = render(MINIMAL, tmp_path / "out")
+    run_in(project, "uv", "run", "pre-commit", "validate-config", ".pre-commit-config.yaml")
+    text = (project / ".pre-commit-config.yaml").read_text()
+    assert "forbid-rej" in text
+    assert "--assume-in-merge" in text
+    # Stage the rendered tree first: pre-commit `run --all-files` operates on
+    # `git ls-files`, and the copy-only _tasks `git init` but never `git add`, so
+    # without this the hooks would inspect zero files and pass vacuously.
+    run_in(project, "git", "add", "-A")
+    run_in(project, "uv", "run", "pre-commit", "run", "--all-files")
+
+
+def test_precommit_install_task_runs(template_root, tmp_path: Path) -> None:
+    """The copy-only hook-install task fires when the hidden flag is left at default."""
+    import copier
+
+    dst = tmp_path / "installed"
+    copier.run_copy(
+        str(template_root),
+        str(dst),
+        data={**MINIMAL, "enable_precommit_install": True},
+        defaults=True,
+        unsafe=True,
+        overwrite=True,
+        quiet=True,
+    )
+    assert (dst / ".git" / "hooks" / "pre-commit").exists()
+    assert (dst / ".git" / "hooks" / "pre-push").exists()

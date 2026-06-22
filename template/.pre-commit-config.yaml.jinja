@@ -1,0 +1,41 @@
+minimum_pre_commit_version: "4.0.0"
+default_install_hook_types: [pre-commit, pre-push]
+default_stages: [pre-commit]
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c  # v6.0.0
+    hooks:
+      - id: check-merge-conflict
+        args: [--assume-in-merge]
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: 77039ccbba72c8aede339c5f8ae29b42aced0a2e  # v0.15.18
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: basedpyright
+        name: basedpyright (type check)
+        entry: uv run basedpyright
+        language: system
+        types: [python]
+        pass_filenames: false
+        stages: [pre-push]
+      - id: pytest
+        name: pytest
+        entry: uv run pytest -m "not property" tests/unit
+        language: system
+        types: [python]
+        pass_filenames: false
+        stages: [pre-push]
+      - id: forbid-rej
+        name: forbid copier .rej conflict files
+        entry: "unresolved copier .rej conflict files present; resolve and delete them"
+        language: fail
+        files: '\.rej$'
