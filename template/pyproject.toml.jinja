@@ -81,3 +81,9 @@ known-first-party = ["{{ package_name }}"]
 [tool.ruff.format]
 quote-style = "double"
 docstring-code-format = true
+
+[tool.basedpyright]
+typeCheckingMode = "strict"
+pythonVersion = "{{ python_version }}"
+include = ["src", "tests"]
+reportMissingImports = "error"
