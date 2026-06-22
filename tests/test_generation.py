@@ -114,6 +114,16 @@ def test_property_layer(render, tmp_path: Path) -> None:
     assert not (off / "tests" / "property").exists()
 
 
+def test_policy_layer(render, tmp_path: Path) -> None:
+    on = render({**MINIMAL, "enable_policy_tests": True}, tmp_path / "on")
+    assert (on / "tests" / "policy" / "test_gates.py").is_file()
+    # --no-cov: policy tests import no package code; the global --cov + fail_under
+    # in addopts would otherwise fail the run at 0% coverage (mirrors `just policy`).
+    run_in(on, "uv", "run", "pytest", "--no-cov", "tests/policy")
+    off = render(MINIMAL, tmp_path / "off")
+    assert not (off / "tests" / "policy").exists()
+
+
 def test_agent_contract(render, tmp_path: Path) -> None:
     full = {**MINIMAL, "enable_property_tests": True, "enable_policy_tests": True}
     project = render(full, tmp_path / "out")

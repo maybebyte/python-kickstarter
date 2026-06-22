@@ -1,0 +1,33 @@
+"""Config-literal pins: gates cannot be silently weakened. Stdlib only."""
+
+import re
+import tomllib
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent.parent
+PYPROJECT = tomllib.loads((ROOT / "pyproject.toml").read_text())
+
+
+def test_coverage_floor_not_lowered() -> None:
+    assert PYPROJECT["tool"]["coverage"]["report"]["fail_under"] >= {{ coverage_floor }}
+
+
+def test_type_checking_is_strict() -> None:
+    assert PYPROJECT["tool"]["basedpyright"]["typeCheckingMode"] == "strict"
+
+
+def test_ruff_select_present() -> None:
+    select = PYPROJECT["tool"]["ruff"]["lint"]["select"]
+{%- if ruff_ruleset == "all" %}
+    assert "ALL" in select
+{%- else %}
+    assert "F" in select and "E" in select
+{%- endif %}
+
+
+def test_agents_md_recipes_exist_in_justfile() -> None:
+    """docs-can't-lie: every `just <recipe>` named in AGENTS.md is a real recipe."""
+    justfile = (ROOT / "justfile").read_text()
+    recipes = set(re.findall(r"^([a-z][a-z-]*):", justfile, re.MULTILINE))
+    referenced = set(re.findall(r"just ([a-z][a-z-]*)", (ROOT / "AGENTS.md").read_text()))
+    assert referenced <= recipes, f"AGENTS.md names missing recipes: {referenced - recipes}"
