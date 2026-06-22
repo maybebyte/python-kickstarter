@@ -134,3 +134,12 @@ def test_agent_contract(render, tmp_path: Path) -> None:
     # Disabled layers emit nothing.
     minimal = render(MINIMAL, tmp_path / "out2")
     assert "tests/property" not in (minimal / "AGENTS.md").read_text()
+
+
+def test_audit_layer(render, tmp_path: Path) -> None:
+    on = render({**MINIMAL, "enable_dependency_audit": True}, tmp_path / "on")
+    result = run_in(on, "just", "audit")
+    # Prove pip-audit actually executed (not a vacuous exit-0 on empty input).
+    assert "vulnerab" in (result.stdout + result.stderr).lower()
+    off = render(MINIMAL, tmp_path / "off")
+    assert "audit:" not in (off / "justfile").read_text()
