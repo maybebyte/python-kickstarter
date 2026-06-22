@@ -192,3 +192,10 @@ def test_ci_workflows(render, tmp_path: Path) -> None:
     assert "continue-on-error: true" in (project / ".github" / "workflows" / "mutation.yml").read_text()
     bare = render(MINIMAL, tmp_path / "bare")
     assert not (bare / ".github" / "workflows" / "scan.yml").exists()
+
+
+def test_sha_pin_policy(render, tmp_path: Path) -> None:
+    full = {**MINIMAL, "enable_policy_tests": True, "enable_sha_pin_policy": True}
+    project = render(full, tmp_path / "out")
+    run_in(project, "uv", "run", "pytest", "--no-cov", "tests/policy")
+    assert "test_actions_are_sha_pinned" in (project / "tests" / "policy" / "test_gates.py").read_text()

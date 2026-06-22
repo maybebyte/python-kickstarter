@@ -31,3 +31,17 @@ def test_agents_md_recipes_exist_in_justfile() -> None:
     recipes = set(re.findall(r"^([a-z][a-z-]*):", justfile, re.MULTILINE))
     referenced = set(re.findall(r"just ([a-z][a-z-]*)", (ROOT / "AGENTS.md").read_text()))
     assert referenced <= recipes, f"AGENTS.md names missing recipes: {referenced - recipes}"
+{% if enable_sha_pin_policy %}
+
+def test_actions_are_sha_pinned() -> None:
+    """Every third-party `uses:` is a 40-char SHA + a v-prefixed version comment."""
+    # SHA + a comment starting v<major>[.minor[.patch]]. Actions that publish only
+    # major tags (e.g. setup-just) legitimately carry "# v4"; exact-tag-vs-floating is
+    # re-checked by the maintainer at SHA-bump time via `gh api .../tags`.
+    pattern = re.compile(r"uses:\s*\S+@([0-9a-f]{40})\s+#\s*v\d+(\.\d+){0,2}\b")
+    for wf in (ROOT / ".github" / "workflows").glob("*.yml"):
+        for line in wf.read_text().splitlines():
+            stripped = line.strip()
+            if stripped.startswith(("- uses:", "uses:")):
+                assert pattern.search(stripped), f"unpinned action in {wf.name}: {stripped}"
+{% endif -%}
