@@ -162,3 +162,13 @@ def test_renovate_layer(render, tmp_path: Path) -> None:
     assert cfg["pre-commit"]["enabled"] is True
     off = render(MINIMAL, tmp_path / "off")
     assert not (off / "renovate.json").exists()
+
+
+def test_mutation_config(render, tmp_path: Path) -> None:
+    on = render({**MINIMAL, "enable_mutation_tests": True}, tmp_path / "on")
+    pyproject = (on / "pyproject.toml").read_text()
+    assert "[tool.mutmut]" in pyproject
+    assert "source_paths" in pyproject
+    assert "mutate:" in (on / "justfile").read_text()
+    off = render(MINIMAL, tmp_path / "off")
+    assert "[tool.mutmut]" not in (off / "pyproject.toml").read_text()

@@ -124,3 +124,10 @@ exclude_also = [
     "raise NotImplementedError",
     "@(abc\\.)?abstractmethod",
 ]
+{% if enable_mutation_tests %}
+[tool.mutmut]
+source_paths = ["src/{{ package_name }}"]
+pytest_add_cli_args_test_selection = ["tests/unit"]
+pytest_add_cli_args = ["-p", "no:cov"]
+mutate_only_covered_lines = false
+{% endif -%}
