@@ -1,0 +1,138 @@
+# ---- Copier mechanics -------------------------------------------------------
+_subdirectory: template
+_answers_file: .copier-answers.yml
+_min_copier_version: "9.6.0"
+_envops:
+  keep_trailing_newline: true
+
+# _exclude REPLACES Copier's default ignore list, so the defaults are repeated here
+# plus LICENSE-APACHE.txt (vendored verbatim and pulled into LICENSE via {% include %},
+# never emitted as its own file in the generated project).
+_exclude:
+  - "copier.yml"
+  - "copier.yaml"
+  - "~*"
+  - "*.py[co]"
+  - "__pycache__"
+  - ".git"
+  - ".DS_Store"
+  - ".svn"
+  - "LICENSE-APACHE.txt"
+
+_message_after_copy: |
+  "{{ project_name }}" is ready.
+  Next:
+    cd {{ _copier_conf.dst_path }}
+    just ci      # everything should be green
+
+# Run once on initial copy only (guarded by _copier_operation, requires Copier >= 9.6).
+# These are UNSAFE features: `copier copy --trust` / `copier update --trust` required.
+_tasks:
+  - command: git init --quiet
+    when: "{{ _copier_operation == 'copy' }}"
+  - command: uv lock
+    when: "{{ _copier_operation == 'copy' }}"
+  - command: uv sync
+    when: "{{ _copier_operation == 'copy' }}"
+  - command: uv run pre-commit install --install-hooks
+    when: "{{ _copier_operation == 'copy' and enable_precommit_install }}"
+
+# _migrations run ONLY on update (never copy), version-gated to the release that
+# introduced a breaking rename/restructure (they run when new >= declared > old).
+# None are needed yet; add one when a variable is renamed or a file moves across
+# releases — a bare overwrite would otherwise orphan or conflict the change. Example:
+# _migrations:
+#   - version: v2.0.0
+#     command: ["{{ _copier_python }}", "-c", "import pathlib; pathlib.Path('old.txt').unlink(missing_ok=True)"]
+
+# ---- Identity / metadata ----------------------------------------------------
+project_name:
+  type: str
+  help: Human-readable project name.
+
+package_name:
+  type: str
+  help: Importable package name (lowercase, underscores).
+  default: "{{ project_name | lower | replace(' ', '_') | replace('-', '_') }}"
+  validator: >-
+    {% if not (package_name | regex_search('^[a-z][a-z0-9_]+$')) %}
+    package_name must match ^[a-z][a-z0-9_]+$
+    {% endif %}
+
+author_name:
+  type: str
+  default: Your Name
+
+author_email:
+  type: str
+  default: you@example.com
+
+description:
+  type: str
+  default: A new Python project.
+
+license:
+  type: str
+  default: MIT
+  choices:
+    - MIT
+    - Apache-2.0
+    - proprietary
+
+python_version:
+  type: str
+  default: "3.13"
+  choices:
+    - "3.13"
+    - "3.12"
+    - "3.11"
+
+project_type:
+  type: str
+  default: library
+  choices:
+    library: library
+    application: application
+
+# ---- Guardrail toggles / tuning ---------------------------------------------
+ruff_ruleset:
+  type: str
+  default: all
+  choices:
+    all (every rule, version-coupled): all
+    curated (explicit allowlist): curated
+
+coverage_floor:
+  type: int
+  default: 85
+  help: Minimum branch-coverage percentage (fail_under).
+
+enable_property_tests:
+  type: bool
+  default: true
+enable_mutation_tests:
+  type: bool
+  default: true
+enable_policy_tests:
+  type: bool
+  default: true
+enable_scanners:
+  type: bool
+  default: true
+enable_dependency_audit:
+  type: bool
+  default: true
+enable_renovate:
+  type: bool
+  default: true
+enable_sha_pin_policy:
+  type: bool
+  default: true
+
+# Hidden helper (never prompted). The generation-test harness passes this as False
+# (see tests/conftest.py) to skip the slow pre-commit hook-install task; a real
+# `copier copy` leaves it true so the downstream gets its hooks installed.
+enable_precommit_install:
+  type: bool
+  default: true
+  when: false

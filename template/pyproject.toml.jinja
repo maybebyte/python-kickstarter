@@ -1,0 +1,41 @@
+[project]
+# PEP 503 distribution name: MUST be the validated slug, NOT the free-text
+# project_name. "Demo Project" (spaces/caps) is not a valid name and `uv lock`
+# — run by the copy-only _tasks on every render — aborts the whole generation.
+name = "{{ package_name }}"
+version = "0.1.0"
+description = "{{ description }}"
+authors = [{ name = "{{ author_name }}", email = "{{ author_email }}" }]
+requires-python = ">={{ python_version }}"
+readme = "README.md"
+{%- if license != "proprietary" %}
+license = "{{ license }}"
+{%- endif %}
+dependencies = []
+
+{% if project_type == "library" -%}
+[build-system]
+requires = ["uv_build>=0.11.23,<0.12"]
+build-backend = "uv_build"
+{%- else -%}
+[tool.uv]
+package = false
+{%- endif %}
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15,<0.16",
+    "basedpyright>=1.39",
+    "pytest>=8",
+    "pytest-cov>=5",
+    "pre-commit>=4",
+{%- if enable_property_tests %}
+    "hypothesis>=6",
+{%- endif %}
+{%- if enable_mutation_tests %}
+    "mutmut>=3.6",
+{%- endif %}
+{%- if enable_dependency_audit %}
+    "pip-audit>=2.10",
+{%- endif %}
+]
