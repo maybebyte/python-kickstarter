@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 import yaml
 
 from tests.conftest import run_in
@@ -271,3 +272,27 @@ def test_curated_ruleset(render, tmp_path: Path) -> None:
     assert 'select = ["E", "F"' in pyproject
     assert '"ALL"' not in pyproject
     run_in(project, "uv", "run", "ruff", "check", ".")
+
+
+@pytest.mark.parametrize("version", ["3.11", "3.12", "3.13"])
+def test_python_version_wiring(render, tmp_path: Path, version: str) -> None:
+    project = render({**MINIMAL, "python_version": version}, tmp_path / version)
+    pyproject = (project / "pyproject.toml").read_text()
+    assert f'requires-python = ">={version}"' in pyproject
+    assert f'target-version = "py{version.replace(".", "")}"' in pyproject
+    assert f'pythonVersion = "{version}"' in pyproject
+
+
+def test_license_rendering(render, tmp_path: Path) -> None:
+    mit = render({**MINIMAL, "license": "MIT"}, tmp_path / "mit")
+    mit_text = (mit / "LICENSE").read_text()
+    assert "MIT License" in mit_text
+    assert "WITHOUT WARRANTY OF ANY KIND" in mit_text  # full body, not truncated
+    apache = render({**MINIMAL, "license": "Apache-2.0"}, tmp_path / "apache")
+    assert "Licensed under the Apache License" in (apache / "LICENSE").read_text()
+    prop = render({**MINIMAL, "license": "proprietary"}, tmp_path / "prop")
+    assert "All rights reserved" in (prop / "LICENSE").read_text()
+    assert "license =" not in (prop / "pyproject.toml").read_text()
+    # No ellipsis placeholder ever ships in a rendered LICENSE.
+    for variant in (mit, apache, prop):
+        assert "\n...\n" not in (variant / "LICENSE").read_text()
