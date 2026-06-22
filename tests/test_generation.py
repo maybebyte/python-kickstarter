@@ -68,3 +68,8 @@ def test_minimal_tests_pass_with_coverage(render, tmp_path: Path) -> None:
     project = render(MINIMAL, tmp_path / "out")
     result = run_in(project, "uv", "run", "pytest", "-m", "not property", "tests/unit")
     assert "passed" in result.stdout
+
+
+def test_minimal_just_ci_green(render, tmp_path: Path) -> None:
+    project = render(MINIMAL, tmp_path / "out")
+    run_in(project, "just", "ci")

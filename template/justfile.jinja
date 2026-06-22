@@ -1,0 +1,48 @@
+set shell := ["bash", "-eu", "-o", "pipefail", "-c"]
+
+default:
+    @just --list
+
+# Complete local gate — mirrors what blocks a PR.
+ci: fmt-check lint typecheck test{% if enable_property_tests %} fuzz{% endif %}{% if enable_policy_tests %} policy{% endif %}{% if enable_dependency_audit %} audit{% endif %}
+    @echo "ci: all gates passed"
+
+verify: ci
+
+fmt:
+    uv run ruff format .
+    uv run ruff check --fix .
+
+fmt-check:
+    uv run ruff format --check .
+
+lint:
+    uv run ruff check .
+
+typecheck:
+    uv run basedpyright
+
+test:
+    uv run pytest -m "not property" tests/unit
+{% if enable_property_tests %}
+fuzz:
+    HYPOTHESIS_PROFILE="${HYPOTHESIS_PROFILE:-dev}" uv run pytest --no-cov -m property tests/property
+{% endif %}{% if enable_policy_tests %}
+policy:
+    uv run pytest --no-cov tests/policy
+{% endif %}{% if enable_dependency_audit %}
+audit:
+    uv export --frozen --no-emit-project --no-dev --no-hashes -o requirements-audit.txt
+    uv run pip-audit -r requirements-audit.txt
+    rm -f requirements-audit.txt
+{% endif %}{% if enable_mutation_tests %}
+# Slow / out-of-band (also runs in CI on its own cron, non-gating).
+mutate:
+    uv run mutmut run || true
+    uv run mutmut export-cicd-stats
+    uv run mutmut results
+{% endif %}{% if enable_scanners %}
+scan:
+    uvx semgrep@1.167.0 scan --config auto --error .
+    gitleaks dir . --redact --exit-code 1
+{% endif %}
