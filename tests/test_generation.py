@@ -172,3 +172,23 @@ def test_mutation_config(render, tmp_path: Path) -> None:
     assert "mutate:" in (on / "justfile").read_text()
     off = render(MINIMAL, tmp_path / "off")
     assert "[tool.mutmut]" not in (off / "pyproject.toml").read_text()
+
+
+def test_ci_workflows(render, tmp_path: Path) -> None:
+    full = {**MINIMAL, "enable_scanners": True, "enable_dependency_audit": True,
+            "enable_sha_pin_policy": True, "enable_mutation_tests": True}
+    project = render(full, tmp_path / "out")
+    ci = (project / ".github" / "workflows" / "ci.yml").read_text()
+    assert "uv sync --locked" in ci
+    assert "just ci" in ci
+    assert "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0" in ci
+    # GitHub expressions survived Jinja rendering literally.
+    assert "${{ matrix.python-version }}" in ci
+    # Matrix respects requires-python (default 3.13 → no 3.11/3.12 legs).
+    assert '"3.11"' not in ci and '"3.12"' not in ci
+    assert (project / ".github" / "workflows" / "scan.yml").is_file()
+    assert (project / ".github" / "workflows" / "mutation.yml").is_file()
+    # Mutation workflow is non-gating.
+    assert "continue-on-error: true" in (project / ".github" / "workflows" / "mutation.yml").read_text()
+    bare = render(MINIMAL, tmp_path / "bare")
+    assert not (bare / ".github" / "workflows" / "scan.yml").exists()
