@@ -199,3 +199,13 @@ def test_sha_pin_policy(render, tmp_path: Path) -> None:
     project = render(full, tmp_path / "out")
     run_in(project, "uv", "run", "pytest", "--no-cov", "tests/policy")
     assert "test_actions_are_sha_pinned" in (project / "tests" / "policy" / "test_gates.py").read_text()
+
+
+def test_apache_license_renders(render, tmp_path: Path) -> None:
+    project = render({**MINIMAL, "license": "Apache-2.0"}, tmp_path / "out")
+    text = (project / "LICENSE").read_text()
+    assert text.lstrip().startswith("Apache License")
+    # exactly one trailing newline (would otherwise fail end-of-file-fixer)
+    assert text.endswith("\n") and not text.endswith("\n\n")
+    # the vendored include source must not leak into the generated project
+    assert not (project / "LICENSE-APACHE.txt").exists()
