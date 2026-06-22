@@ -1,0 +1,16 @@
+"""Canonical property test — copy this to add a new one."""
+
+import pytest
+from hypothesis import given
+from hypothesis import strategies as st
+
+from {{ package_name }} import clamp
+
+pytestmark = pytest.mark.property
+
+
+@given(st.integers(), st.integers(), st.integers())
+def test_clamp_stays_within_bounds(value: int, a: int, b: int) -> None:
+    low, high = sorted((a, b))
+    result = clamp(value, low, high)
+    assert low <= result <= high

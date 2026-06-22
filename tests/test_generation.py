@@ -106,6 +106,14 @@ def test_precommit_install_task_runs(template_root, tmp_path: Path) -> None:
     assert (dst / ".git" / "hooks" / "pre-push").exists()
 
 
+def test_property_layer(render, tmp_path: Path) -> None:
+    on = render({**MINIMAL, "enable_property_tests": True}, tmp_path / "on")
+    assert (on / "tests" / "property" / "test_example_property.py").is_file()
+    run_in(on, "just", "fuzz")
+    off = render(MINIMAL, tmp_path / "off")
+    assert not (off / "tests" / "property").exists()
+
+
 def test_agent_contract(render, tmp_path: Path) -> None:
     full = {**MINIMAL, "enable_property_tests": True, "enable_policy_tests": True}
     project = render(full, tmp_path / "out")
