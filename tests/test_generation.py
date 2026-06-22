@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import yaml
@@ -152,3 +153,12 @@ def test_scanner_layer(render, tmp_path: Path) -> None:
     assert "scan:" in (on / "justfile").read_text()
     off = render(MINIMAL, tmp_path / "off")
     assert not (off / ".gitleaks.toml").exists()
+
+
+def test_renovate_layer(render, tmp_path: Path) -> None:
+    on = render({**MINIMAL, "enable_renovate": True}, tmp_path / "on")
+    cfg = json.loads((on / "renovate.json").read_text())
+    assert "helpers:pinGitHubActionDigests" in cfg["extends"]
+    assert cfg["pre-commit"]["enabled"] is True
+    off = render(MINIMAL, tmp_path / "off")
+    assert not (off / "renovate.json").exists()
