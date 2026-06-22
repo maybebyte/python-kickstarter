@@ -51,3 +51,9 @@ def test_minimal_renders(render, tmp_path: Path) -> None:
     # No unrendered template artifacts leaked through.
     assert not list(project.rglob("*.jinja"))
     assert not (project / "{{ _copier_conf.answers_file }}.jinja").exists()
+
+
+def test_minimal_lints_clean(render, tmp_path: Path) -> None:
+    project = render(MINIMAL, tmp_path / "out")
+    run_in(project, "uv", "run", "ruff", "check", ".")
+    run_in(project, "uv", "run", "ruff", "format", "--check", ".")

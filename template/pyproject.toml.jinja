@@ -39,3 +39,45 @@ dev = [
     "pip-audit>=2.10",
 {%- endif %}
 ]
+
+[tool.ruff]
+line-length = 100
+target-version = "py{{ python_version | replace('.', '') }}"
+
+[tool.ruff.lint]
+{% if ruff_ruleset == "all" -%}
+select = ["ALL"]
+ignore = [
+    "E501", "ANN401", "PLR0913", "PLR2004", "TD002", "TD003", "FIX002",
+    "EM101", "EM102", "TRY003", "D100", "D203", "D213", "COM812", "ISC001",
+]
+{%- else -%}
+select = ["E", "F", "UP", "B", "SIM", "I", "ANN", "S", "C4", "DTZ", "PTH", "RUF", "PL"]
+{%- endif %}
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.pylint]
+max-args = 8
+max-branches = 12
+max-returns = 6
+max-statements = 50
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.isort]
+known-first-party = ["{{ package_name }}"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "PLR2004", "ANN", "D", "INP001", "SLF001"]
+{%- if project_type == "application" %}
+# The application entry point intentionally prints; T201 (flake8-print) under
+# select=ALL would otherwise fail `ruff check` on src/<pkg>/__main__.py.
+"src/**/__main__.py" = ["T201"]
+{%- endif %}
+
+[tool.ruff.format]
+quote-style = "double"
+docstring-code-format = true
