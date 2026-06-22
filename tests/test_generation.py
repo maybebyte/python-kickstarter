@@ -143,3 +143,12 @@ def test_audit_layer(render, tmp_path: Path) -> None:
     assert "vulnerab" in (result.stdout + result.stderr).lower()
     off = render(MINIMAL, tmp_path / "off")
     assert "audit:" not in (off / "justfile").read_text()
+
+
+def test_scanner_layer(render, tmp_path: Path) -> None:
+    on = render({**MINIMAL, "enable_scanners": True}, tmp_path / "on")
+    assert (on / ".gitleaks.toml").is_file()
+    assert (on / ".semgrep.yml").is_file()
+    assert "scan:" in (on / "justfile").read_text()
+    off = render(MINIMAL, tmp_path / "off")
+    assert not (off / ".gitleaks.toml").exists()
