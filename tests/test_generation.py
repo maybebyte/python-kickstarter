@@ -209,3 +209,34 @@ def test_apache_license_renders(render, tmp_path: Path) -> None:
     assert text.endswith("\n") and not text.endswith("\n\n")
     # the vendored include source must not leak into the generated project
     assert not (project / "LICENSE-APACHE.txt").exists()
+
+
+def test_all_toggles_on_passes_full_gate(render, tmp_path: Path) -> None:
+    """Every guardrail layer ON: the generated project passes its own pre-commit + `just ci`.
+
+    Closes the toggle-ON gate-coverage gap — `test_precommit_config_valid` only exercises MINIMAL,
+    and the per-layer tests run sub-recipes that skip whole-tree hooks (e.g. end-of-file-fixer).
+    """
+    full = {
+        **MINIMAL,
+        "enable_property_tests": True,
+        "enable_mutation_tests": True,
+        "enable_policy_tests": True,
+        "enable_scanners": True,
+        "enable_dependency_audit": True,
+        "enable_renovate": True,
+        "enable_sha_pin_policy": True,
+    }
+    project = render(full, tmp_path / "out")
+
+    # Stage everything so the generated project's own pre-commit sees every rendered file.
+    run_in(project, "git", "add", "-A")
+    precommit = run_in(project, "uv", "run", "pre-commit", "run", "--all-files", check=False)
+    assert precommit.returncode == 0, (
+        f"pre-commit failed on the all-toggles-ON render:\n{precommit.stdout}\n{precommit.stderr}"
+    )
+
+    gate = run_in(project, "just", "ci", check=False)
+    assert gate.returncode == 0, (
+        f"`just ci` failed on the all-toggles-ON render:\n{gate.stdout}\n{gate.stderr}"
+    )
