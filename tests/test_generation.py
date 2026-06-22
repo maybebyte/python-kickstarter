@@ -263,3 +263,11 @@ def test_all_toggles_on_passes_full_gate(render, tmp_path: Path) -> None:
     assert gate.returncode == 0, (
         f"`just ci` failed on the all-toggles-ON render:\n{gate.stdout}\n{gate.stderr}"
     )
+
+
+def test_curated_ruleset(render, tmp_path: Path) -> None:
+    project = render({**MINIMAL, "ruff_ruleset": "curated"}, tmp_path / "out")
+    pyproject = (project / "pyproject.toml").read_text()
+    assert 'select = ["E", "F"' in pyproject
+    assert '"ALL"' not in pyproject
+    run_in(project, "uv", "run", "ruff", "check", ".")
