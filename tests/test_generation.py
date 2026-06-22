@@ -30,6 +30,16 @@ MINIMAL = {
     "enable_sha_pin_policy": False,
 }
 
+FULL = {**MINIMAL, "project_type": "library", "ruff_ruleset": "all",
+        "enable_property_tests": True, "enable_mutation_tests": True,
+        "enable_policy_tests": True, "enable_scanners": True,
+        "enable_dependency_audit": True, "enable_renovate": True,
+        "enable_sha_pin_policy": True}
+
+MATRIX = {"minimal": MINIMAL, "full": FULL,
+          "app": {**MINIMAL, "project_type": "application"},
+          "curated": {**MINIMAL, "ruff_ruleset": "curated"}}
+
 
 def test_minimal_renders(render, tmp_path: Path) -> None:
     project = render(MINIMAL, tmp_path / "out")
@@ -296,3 +306,18 @@ def test_license_rendering(render, tmp_path: Path) -> None:
     # No ellipsis placeholder ever ships in a rendered LICENSE.
     for variant in (mit, apache, prop):
         assert "\n...\n" not in (variant / "LICENSE").read_text()
+
+
+def test_full_combo_gate_green(render, tmp_path: Path) -> None:
+    """The gold-standard check: a fully-loaded project is green on `just ci`."""
+    project = render(FULL, tmp_path / "full")
+    run_in(project, "just", "ci")
+
+
+@pytest.mark.parametrize("name", list(MATRIX))
+def test_matrix(render, tmp_path: Path, name: str) -> None:
+    project = render(MATRIX[name], tmp_path / name)
+    # Fast subset for every combo; the full `just ci` is exercised by test_full_combo_gate_green.
+    run_in(project, "just", "fmt-check")
+    run_in(project, "just", "lint")
+    run_in(project, "just", "typecheck")
