@@ -1,0 +1,10 @@
+"""Entry-point coverage — exercises __main__.main()."""
+
+import pytest
+
+from {{ package_name }}.__main__ import main
+
+
+def test_main_prints_clamped_value(capsys: pytest.CaptureFixture[str]) -> None:
+    main()
+    assert capsys.readouterr().out.strip() == "5"

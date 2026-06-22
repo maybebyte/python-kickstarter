@@ -1,0 +1,12 @@
+"""Entry point for {{ project_name }}."""
+
+from {{ package_name }} import clamp
+
+
+def main() -> None:
+    """Run the application."""
+    print(clamp(5, 0, 10))
+
+
+if __name__ == "__main__":
+    main()

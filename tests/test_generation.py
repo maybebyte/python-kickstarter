@@ -211,6 +211,29 @@ def test_apache_license_renders(render, tmp_path: Path) -> None:
     assert not (project / "LICENSE-APACHE.txt").exists()
 
 
+def test_library_builds(render, tmp_path: Path) -> None:
+    project = render({**MINIMAL, "project_type": "library"}, tmp_path / "lib")
+    run_in(project, "uv", "build")
+    assert list((project / "dist").glob("*.whl"))
+    # No stray entry-point file in a library render.
+    pkg = project / "src" / "demo_project"
+    assert not (pkg / "__main__.py").exists()
+    assert not list(pkg.glob(".py"))
+
+
+def test_application_runs(render, tmp_path: Path) -> None:
+    project = render({**MINIMAL, "project_type": "application"}, tmp_path / "app")
+    pyproject = (project / "pyproject.toml").read_text()
+    assert "package = false" in pyproject
+    assert "pythonpath" in pyproject
+    assert "[project.scripts]" not in pyproject  # import-only fork
+    run_in(project, "just", "ci")
+    # The entry point runs via `python -m` with src on the path: `package = false`
+    # leaves src/ uninstalled and pytest's `pythonpath` is pytest-only, so a bare
+    # `python -m` raises ModuleNotFoundError — `env PYTHONPATH=src` is required.
+    assert run_in(project, "env", "PYTHONPATH=src", "uv", "run", "python", "-m", "demo_project").returncode == 0
+
+
 def test_all_toggles_on_passes_full_gate(render, tmp_path: Path) -> None:
     """Every guardrail layer ON: the generated project passes its own pre-commit + `just ci`.
 

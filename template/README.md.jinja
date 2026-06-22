@@ -9,4 +9,12 @@ uv sync          # install deps + dev group
 just ci          # run the complete local gate
 ```
 
+{% if project_type == 'application' %}
+## Run
+
+```bash
+PYTHONPATH=src uv run python -m {{ package_name }}
+```
+
+{% endif %}
 See `AGENTS.md` for the full contract.
