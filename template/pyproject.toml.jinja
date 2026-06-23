@@ -28,7 +28,9 @@ package = false
 [dependency-groups]
 dev = [
     "ruff>=0.15,<0.16",
-    "basedpyright>=1.39",
+    # strict mode is version-coupled like ruff's ALL set: a new basedpyright minor can
+    # add strict diagnostics that turn a green tree red, so cap it and bump deliberately.
+    "basedpyright>=1.39,<1.40",
     "pytest>=8",
     "pytest-cov>=5",
     "pre-commit>=4",
