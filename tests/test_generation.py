@@ -455,7 +455,13 @@ def test_curated_ruleset(render, tmp_path: Path) -> None:
     pyproject = (project / "pyproject.toml").read_text()
     assert 'select = ["E", "F"' in pyproject
     assert '"ALL"' not in pyproject
+    # The pydocstyle convention only takes effect when the D rules are selected (the
+    # `all` ruleset); curated omits D, so the block must not render as dead config.
+    assert "[tool.ruff.lint.pydocstyle]" not in pyproject
     run_in(project, "uv", "run", "ruff", "check", ".")
+    # ...and it IS present on the `all` path, where the D rules are active.
+    allp = render(MINIMAL, tmp_path / "all")
+    assert "[tool.ruff.lint.pydocstyle]" in (allp / "pyproject.toml").read_text()
 
 
 @pytest.mark.parametrize("version", ["3.11", "3.12", "3.13"])

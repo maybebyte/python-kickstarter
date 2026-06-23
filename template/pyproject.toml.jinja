@@ -69,9 +69,13 @@ max-branches = 12
 max-returns = 6
 max-statements = 50
 
+{% if ruff_ruleset == "all" -%}
+# Only meaningful under select=ALL, which activates the pydocstyle (D) rules; the
+# curated ruleset omits D, so this block would be dead config there.
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
+{% endif -%}
 [tool.ruff.lint.isort]
 known-first-party = ["{{ package_name }}"]
 
