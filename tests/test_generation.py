@@ -86,6 +86,18 @@ def test_free_text_answers_are_toml_and_python_safe(render, tmp_path: Path) -> N
     assert run_in(project, "uv", "run", "python", "-c", "import demo_project").returncode == 0
 
 
+@pytest.mark.parametrize("name", ["class", "import", "for", "as"])
+def test_package_name_rejects_python_keywords(render, tmp_path: Path, name: str) -> None:
+    """A Python keyword passes the identifier-shape regex but is unimportable.
+
+    `package_name = "class"` renders `src/class/`, but `import class` is a SyntaxError
+    and `--cov=class` breaks `just ci`; the shape regex alone gives false assurance, so
+    the validator must also reject keywords.
+    """
+    with pytest.raises(ValueError, match="package_name"):
+        render({**MINIMAL, "package_name": name}, tmp_path / name)
+
+
 def test_minimal_lints_clean(render, tmp_path: Path) -> None:
     project = render(MINIMAL, tmp_path / "out")
     run_in(project, "uv", "run", "ruff", "check", ".")

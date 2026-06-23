@@ -54,9 +54,16 @@ package_name:
   type: str
   help: Importable package name (lowercase, underscores).
   default: "{{ project_name | lower | replace(' ', '_') | replace('-', '_') }}"
+  # The shape regex enforces a lowercase identifier but not keyword-safety: `class`,
+  # `import`, `as`, ... match yet render an unimportable `src/<kw>/` (`import class` is
+  # a SyntaxError) and break `--cov=<kw>`. Reject hard keywords too. Jinja has no
+  # `keyword` module, so the list is explicit; uppercase keywords can't reach here (the
+  # regex bars a leading capital) and soft keywords (match/case/type) stay legal.
   validator: >-
     {% if not (package_name | regex_search('^[a-z][a-z0-9_]+$')) %}
     package_name must match ^[a-z][a-z0-9_]+$
+    {% elif package_name in ["and", "as", "assert", "async", "await", "break", "class", "continue", "def", "del", "elif", "else", "except", "finally", "for", "from", "global", "if", "import", "in", "is", "lambda", "nonlocal", "not", "or", "pass", "raise", "return", "try", "while", "with", "yield"] %}
+    package_name must not be a Python keyword
     {% endif %}
 
 author_name:
