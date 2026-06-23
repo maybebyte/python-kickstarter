@@ -4,8 +4,11 @@
 # — run by the copy-only _tasks on every render — aborts the whole generation.
 name = "{{ package_name }}"
 version = "0.1.0"
-description = "{{ description }}"
-authors = [{ name = "{{ author_name }}", email = "{{ author_email }}" }]
+# description / author_* are free text: escape backslash and double-quote so a value
+# like `A "great" project` stays a valid TOML basic string — an unescaped " would break
+# parsing and abort the copy-time `uv lock` (the package_name slug is already validated).
+description = "{{ description | replace('\\', '\\\\') | replace('"', '\\"') }}"
+authors = [{ name = "{{ author_name | replace('\\', '\\\\') | replace('"', '\\"') }}", email = "{{ author_email | replace('\\', '\\\\') | replace('"', '\\"') }}" }]
 requires-python = ">={{ python_version }}"
 readme = "README.md"
 {%- if license != "proprietary" %}

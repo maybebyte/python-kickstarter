@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -64,6 +65,25 @@ def test_minimal_renders(render, tmp_path: Path) -> None:
     # No unrendered template artifacts leaked through.
     assert not list(project.rglob("*.jinja"))
     assert not (project / "{{ _copier_conf.answers_file }}.jinja").exists()
+
+
+def test_free_text_answers_are_toml_and_python_safe(render, tmp_path: Path) -> None:
+    """A double-quote (or backslash) in free-text answers must not abort generation.
+
+    description/author_name/author_email are interpolated into double-quoted TOML and the
+    module docstring; unescaped, a `"` makes invalid TOML and the copy-only `uv lock` _task
+    aborts the whole render. The values are escaped (not rejected), so prose quotes survive.
+    """
+    data = {**MINIMAL, "description": 'They said "hi"', "author_name": 'O"Brien'}
+    # render runs the copy-only `uv lock`/`uv sync`; broken TOML would raise here.
+    project = render(data, tmp_path / "out")
+
+    parsed = tomllib.loads((project / "pyproject.toml").read_text())
+    assert parsed["project"]["description"] == 'They said "hi"'
+    assert parsed["project"]["authors"][0]["name"] == 'O"Brien'
+
+    # The same values reach the module docstring; it must stay importable Python.
+    assert run_in(project, "uv", "run", "python", "-c", "import demo_project").returncode == 0
 
 
 def test_minimal_lints_clean(render, tmp_path: Path) -> None:

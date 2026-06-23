@@ -1,4 +1,4 @@
-"""{{ project_name }} — {{ description }}"""
+"""{{ project_name | replace('\\', '\\\\') | replace('"', '\\"') }} — {{ description | replace('\\', '\\\\') | replace('"', '\\"') }}"""
 
 from {{ package_name }}.core import clamp
 
