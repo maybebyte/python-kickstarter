@@ -344,6 +344,22 @@ def test_sha_pin_audit_ships_without_policy_tests(render, tmp_path: Path) -> Non
     )
 
 
+def test_zizmor_audit_absent_when_sha_pin_policy_off(render, tmp_path: Path) -> None:
+    """The zizmor CI step is gated solely on enable_sha_pin_policy and is absent from the
+    local `just scan`/`just ci` recipes, so only this generation assertion guards its CI
+    surface — dropping or inverting that guard would silently delete a security gate with
+    no other test failing. Render scan.yml via another layer so the file exists, then prove
+    the zizmor step is gone when the toggle is off.
+    """
+    off = render(
+        {**MINIMAL, "enable_sha_pin_policy": False, "enable_scanners": True},
+        tmp_path / "off",
+    )
+    scan = (off / ".github" / "workflows" / "scan.yml").read_text()
+    assert "semgrep" in scan  # scan.yml really rendered (scanners on), not empty/missing
+    assert "zizmor" not in scan
+
+
 def test_apache_license_renders(render, tmp_path: Path) -> None:
     project = render({**MINIMAL, "license": "Apache-2.0"}, tmp_path / "out")
     text = (project / "LICENSE").read_text()
