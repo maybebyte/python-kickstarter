@@ -203,6 +203,20 @@ def test_agent_contract(render, tmp_path: Path) -> None:
     assert "tests/property" not in (minimal / "AGENTS.md").read_text()
 
 
+def test_agents_outofband_items_are_separated(render, tmp_path: Path) -> None:
+    """With both mutation and scanners on, the two Out-of-band items need a separator.
+
+    Without one the gate line renders `...(mutation, non-gating) `just scan`...` with the
+    fragments run together; a semicolon must separate them.
+    """
+    project = render(
+        {**MINIMAL, "enable_mutation_tests": True, "enable_scanners": True}, tmp_path / "out"
+    )
+    agents = (project / "AGENTS.md").read_text()
+    assert "non-gating); `just scan`" in agents
+    assert "non-gating) `just scan`" not in agents
+
+
 def test_audit_layer(render, tmp_path: Path) -> None:
     on = render({**MINIMAL, "enable_dependency_audit": True}, tmp_path / "on")
     result = run_in(on, "just", "audit")

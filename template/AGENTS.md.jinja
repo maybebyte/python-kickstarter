@@ -21,7 +21,7 @@ just ci            # the complete gate — must be green before pushing
 
 ## The gate
 
-`just ci` is the COMPLETE fast gate: fmt-check, lint, typecheck, test+coverage{% if enable_property_tests %}, fuzz{% endif %}{% if enable_policy_tests %}, policy{% endif %}{% if enable_dependency_audit %}, audit{% endif %}.{% if enable_mutation_tests or enable_scanners %} Out-of-band:{% if enable_mutation_tests %} `just mutate` (mutation, non-gating){% endif %}{% if enable_scanners %} `just scan` (semgrep + gitleaks){% endif %}.{% endif %}
+`just ci` is the COMPLETE fast gate: fmt-check, lint, typecheck, test+coverage{% if enable_property_tests %}, fuzz{% endif %}{% if enable_policy_tests %}, policy{% endif %}{% if enable_dependency_audit %}, audit{% endif %}.{% if enable_mutation_tests or enable_scanners %} Out-of-band:{% if enable_mutation_tests %} `just mutate` (mutation, non-gating){% endif %}{% if enable_scanners %}{% if enable_mutation_tests %};{% endif %} `just scan` (semgrep + gitleaks){% endif %}.{% endif %}
 
 ## Add a behavior test
 
