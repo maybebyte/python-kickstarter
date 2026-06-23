@@ -28,7 +28,9 @@ All toggles default to `true` — every guardrail layer ships unless you opt out
 | `enable_scanners` | Semgrep + gitleaks scan recipe (`just scan`) |
 | `enable_dependency_audit` | pip-audit recipe (`just audit`) |
 | `enable_renovate` | Renovate bot config |
-| `enable_sha_pin_policy` | CI policy test asserting all Action SHAs are pinned |
+| `enable_sha_pin_policy` | CI policy test asserting all Action SHAs are pinned, plus a zizmor workflow audit in CI |
+
+Beyond their `just` recipes, several toggles also emit GitHub Actions workflows: `enable_scanners`, `enable_dependency_audit`, and `enable_sha_pin_policy` each contribute steps to a generated `scan.yml` (semgrep + gitleaks, pip-audit, and zizmor respectively), and `enable_mutation_tests` emits a scheduled `mutation.yml`. The always-on `ci.yml` runs the `just ci` gate across a Python-version matrix.
 
 ## Requirements
 

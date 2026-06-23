@@ -13,7 +13,7 @@ just test     # renders the answer matrix, installs each project, runs its `just
 
 1. Add an `enable_*` toggle to `copier.yml`.
 2. Add the conditional file(s) under `template/` (file: `{% if flag %}name{% endif %}.jinja`; dir: `{% if flag %}dir{% endif %}/`).
-3. Wire it into `template/justfile.jinja` (recipe + `ci` dep), `template/pyproject.toml.jinja` (dep), and `template/AGENTS.md.jinja` (section).
+3. Wire it into `template/justfile.jinja` (recipe + `ci` dep), `template/pyproject.toml.jinja` (dep), `template/AGENTS.md.jinja` (section), and the CI surface under `template/.github/workflows/` (a conditional step in `scan.yml`, or a dedicated conditional workflow file via the empty-name idiom).
 4. Extend `tests/test_generation.py`: assert present-when-on AND absent-when-off, and that the layer's gate passes.
 
 ## Release
