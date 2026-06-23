@@ -424,6 +424,18 @@ def test_python_version_wiring(render, tmp_path: Path, version: str) -> None:
     assert f'pythonVersion = "{version}"' in pyproject
 
 
+@pytest.mark.parametrize("floor", [0, 150])
+def test_coverage_floor_out_of_range_is_rejected(render, tmp_path: Path, floor: int) -> None:
+    """A floor outside 1..100 must be rejected at answer time, not silently rendered.
+
+    fail_under <= 0 turns the coverage gate into a silent no-op; > 100 makes it
+    permanently unsatisfiable (coverage caps at 100). copier validates `data=` answers,
+    so an out-of-range floor raises before any project is written.
+    """
+    with pytest.raises(ValueError, match="coverage_floor"):
+        render({**MINIMAL, "coverage_floor": floor}, tmp_path / str(floor))
+
+
 def test_tool_version_pins_have_no_drift(render, tmp_path: Path) -> None:
     """Tool versions duplicated across files must agree — catches one-sided bumps.
 

@@ -106,6 +106,12 @@ coverage_floor:
   type: int
   default: 85
   help: Minimum branch-coverage percentage (fail_under).
+  # Reject a floor that no-ops the gate (<= 0) or can never pass (> 100, coverage
+  # caps at 100). Mirrors the package_name validator: empty render == valid.
+  validator: >-
+    {% if coverage_floor < 1 or coverage_floor > 100 %}
+    coverage_floor must be between 1 and 100
+    {% endif %}
 
 enable_property_tests:
   type: bool
