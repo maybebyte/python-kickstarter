@@ -436,6 +436,22 @@ def test_coverage_floor_out_of_range_is_rejected(render, tmp_path: Path, floor: 
         render({**MINIMAL, "coverage_floor": floor}, tmp_path / str(floor))
 
 
+@pytest.mark.parametrize("floor", [70, 95])
+def test_coverage_floor_wiring(render, tmp_path: Path, floor: int) -> None:
+    """A non-default coverage_floor lands literally in pyproject and the policy gate.
+
+    Mirrors test_python_version_wiring: without this, a regression that hardcodes
+    fail_under (decoupling it from the answer) would render every project identically
+    and stay green, since the gate only ever gets *more* permissive.
+    """
+    project = render(
+        {**MINIMAL, "coverage_floor": floor, "enable_policy_tests": True}, tmp_path / str(floor)
+    )
+    assert f"fail_under = {floor}" in (project / "pyproject.toml").read_text()
+    gate = (project / "tests" / "policy" / "test_gates.py").read_text()
+    assert f'["fail_under"] >= {floor}' in gate
+
+
 def test_tool_version_pins_have_no_drift(render, tmp_path: Path) -> None:
     """Tool versions duplicated across files must agree — catches one-sided bumps.
 
