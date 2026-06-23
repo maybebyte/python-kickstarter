@@ -142,7 +142,7 @@ def test_agent_contract(render, tmp_path: Path) -> None:
     assert (project / "CLAUDE.md").read_text().strip() == "@AGENTS.md"
     agents = (project / "AGENTS.md").read_text()
     assert "just ci" in agents
-    assert agents.count("\n") < 200  # instruction budget
+    assert agents.count("\n") < 80  # instruction budget
     # Disabled layers emit nothing.
     minimal = render(MINIMAL, tmp_path / "out2")
     assert "tests/property" not in (minimal / "AGENTS.md").read_text()
@@ -229,7 +229,6 @@ def test_library_builds(render, tmp_path: Path) -> None:
     # No stray entry-point file in a library render.
     pkg = project / "src" / "demo_project"
     assert not (pkg / "__main__.py").exists()
-    assert not list(pkg.glob(".py"))
 
 
 def test_application_runs(render, tmp_path: Path) -> None:

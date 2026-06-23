@@ -69,7 +69,8 @@ def test_update_across_versions_has_no_conflicts(template_root: Path, tmp_path: 
 
     # (c) the delta landed and the updated project is still green.
     assert "<!-- changed in v0.2.0 -->" in (dst / "README.md").read_text()
-    subprocess.run(["just", "ci"], cwd=dst, check=True, capture_output=True)  # noqa: S603, S607
+    ci = subprocess.run(["just", "ci"], cwd=dst, capture_output=True, text=True)  # noqa: S603, S607
+    assert ci.returncode == 0, ci.stdout + ci.stderr
 
 
 def test_update_overlapping_edit_surfaces_conflict_markers(
