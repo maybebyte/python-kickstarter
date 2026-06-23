@@ -128,6 +128,9 @@ exclude_also = [
 [tool.mutmut]
 source_paths = ["src/{{ package_name }}"]
 pytest_add_cli_args_test_selection = ["tests/unit"]
-pytest_add_cli_args = ["-p", "no:cov"]
+# --no-cov (not `-p no:cov`): the cov plugin must stay loaded so the project's
+# addopts `--cov` flags remain valid args; `-p no:cov` unloads it and pytest then
+# rejects `--cov`, so mutmut silently leaves every mutant "not checked".
+pytest_add_cli_args = ["--no-cov"]
 mutate_only_covered_lines = false
 {% endif -%}
