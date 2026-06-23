@@ -123,7 +123,11 @@ def test_minimal_typechecks(render, tmp_path: Path) -> None:
 def test_minimal_tests_pass_with_coverage(render, tmp_path: Path) -> None:
     project = render(MINIMAL, tmp_path / "out")
     result = run_in(project, "uv", "run", "pytest", "-m", "not property", "tests/unit")
+    # Not just "ran": require both a pass AND the coverage report, so the test can't
+    # pass on a collection-only run with the cov plugin silently inactive (a --no-cov
+    # run prints no "coverage:" header).
     assert "passed" in result.stdout
+    assert "coverage:" in result.stdout
 
 
 def test_minimal_just_ci_green(render, tmp_path: Path) -> None:
