@@ -320,6 +320,30 @@ def test_sha_pin_policy(render, tmp_path: Path) -> None:
     assert "test_actions_are_sha_pinned" in (project / "tests" / "policy" / "test_gates.py").read_text()
 
 
+def test_sha_pin_audit_ships_without_policy_tests(render, tmp_path: Path) -> None:
+    """enable_sha_pin_policy ships the zizmor CI audit unconditionally, but the SHA-pin
+    *policy test* lives in tests/policy/ and needs enable_policy_tests — the toggles are
+    independent. The README must not promise the test when only the audit ships.
+    """
+    audit_only = render(
+        {**MINIMAL, "enable_sha_pin_policy": True, "enable_policy_tests": False},
+        tmp_path / "audit_only",
+    )
+    # scan.yml exists here solely because sha_pin is on; the zizmor step is present.
+    assert "zizmor" in (audit_only / ".github" / "workflows" / "scan.yml").read_text()
+    # ...but with no policy suite, the SHA-pin policy test does not ship.
+    assert not (audit_only / "tests" / "policy").exists()
+
+    # With the policy layer also on, the SHA-pin policy test ships.
+    both = render(
+        {**MINIMAL, "enable_sha_pin_policy": True, "enable_policy_tests": True},
+        tmp_path / "both",
+    )
+    assert "test_actions_are_sha_pinned" in (
+        (both / "tests" / "policy" / "test_gates.py").read_text()
+    )
+
+
 def test_apache_license_renders(render, tmp_path: Path) -> None:
     project = render({**MINIMAL, "license": "Apache-2.0"}, tmp_path / "out")
     text = (project / "LICENSE").read_text()
