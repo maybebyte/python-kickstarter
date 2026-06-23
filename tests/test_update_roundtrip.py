@@ -7,8 +7,9 @@ import subprocess
 from pathlib import Path
 
 import copier
+import pytest
 
-from tests.test_generation import MINIMAL
+from tests.test_generation import FULL, MINIMAL
 
 DATA = {**MINIMAL, "enable_precommit_install": False}
 
@@ -29,7 +30,22 @@ def _git(repo: Path, *args: str) -> None:
     )
 
 
-def test_update_across_versions_has_no_conflicts(template_root: Path, tmp_path: Path) -> None:
+@pytest.mark.parametrize("answers", [
+    pytest.param(MINIMAL, id="minimal"),
+    pytest.param(FULL, id="full"),
+])
+def test_update_across_versions_has_no_conflicts(
+    template_root: Path, tmp_path: Path, answers: dict[str, object]
+) -> None:
+    """The 3-way merge stays clean across a version delta — bare tree AND fully-layered.
+
+    The minimal tree never exercises conditional/empty-name files, so a change that breaks
+    `copier update` only for layered projects would slip through. The v0.2.0 delta below
+    also edits a scanners-only file, so the merge crosses a guardrail surface when the
+    layers are on.
+    """
+    data = {**answers, "enable_precommit_install": False}
+
     # Work on a throwaway copy so the real template repo is never mutated.
     tpl = tmp_path / "template-copy"
     shutil.copytree(
@@ -44,21 +60,24 @@ def test_update_across_versions_has_no_conflicts(template_root: Path, tmp_path: 
 
     # Generate a downstream project from the OLD tag and commit it.
     dst = tmp_path / "downstream"
-    copier.run_copy(str(tpl), str(dst), data=DATA, defaults=True,
+    copier.run_copy(str(tpl), str(dst), data=data, defaults=True,
                     unsafe=True, overwrite=True, quiet=True, vcs_ref="v0.1.0")
     _git(dst, "init")
     _git(dst, "add", "-A")
     _git(dst, "commit", "-m", "init from v0.1.0")
 
-    # Introduce a genuine template change and tag it v0.2.0 (the update target).
+    # v0.2.0 template change: an always-present file (README) plus a scanners-only file,
+    # so a layered update merges a conditional guardrail surface, not just the README.
     readme = tpl / "template" / "README.md.jinja"
     readme.write_text(readme.read_text() + "\n<!-- changed in v0.2.0 -->\n")
+    semgrep_tpl = tpl / "template" / "{% if enable_scanners %}.semgrep.yml{% endif %}.jinja"
+    semgrep_tpl.write_text(semgrep_tpl.read_text() + "\n# tuned in v0.2.0\n")
     _git(tpl, "add", "-A")
     _git(tpl, "commit", "-m", "v0.2.0 change")
     _git(tpl, "tag", "v0.2.0")
 
     # The real 3-way merge: update the downstream to the latest tag.
-    copier.run_update(str(dst), data=DATA, defaults=True,
+    copier.run_update(str(dst), data=data, defaults=True,
                       unsafe=True, overwrite=True, quiet=True)
 
     # (a) no inline conflict markers, (b) no .rej residue.
@@ -67,8 +86,15 @@ def test_update_across_versions_has_no_conflicts(template_root: Path, tmp_path: 
     assert not markers, f"conflict markers in: {markers}"
     assert not list(dst.rglob("*.rej"))
 
-    # (c) the delta landed and the updated project is still green.
+    # (c) the always-present delta landed; the conditional one landed iff its layer is on.
     assert "<!-- changed in v0.2.0 -->" in (dst / "README.md").read_text()
+    semgrep = dst / ".semgrep.yml"
+    if data["enable_scanners"]:
+        assert semgrep.is_file() and "# tuned in v0.2.0" in semgrep.read_text()
+    else:
+        assert not semgrep.exists()
+
+    # (d) the updated project is still green on its full gate.
     ci = subprocess.run(["just", "ci"], cwd=dst, capture_output=True, text=True)  # noqa: S603, S607
     assert ci.returncode == 0, ci.stdout + ci.stderr
 
