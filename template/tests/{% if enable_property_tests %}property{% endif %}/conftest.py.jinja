@@ -36,7 +36,7 @@ def _require_property_marker(items: list[pytest.Item]) -> None:
 
 
 @pytest.hookimpl(hookwrapper=True)
-def pytest_collection_modifyitems(items: list[pytest.Item]) -> Generator[None, object, None]:
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> Generator[None, object]:
     """Enforce the property marker before `-m property` deselects (and hides) violators.
 
     `just fuzz` runs `-m property`; an unmarked file here would otherwise be
