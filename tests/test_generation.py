@@ -205,6 +205,21 @@ def test_ci_workflows(render, tmp_path: Path) -> None:
     assert not (bare / ".github" / "workflows" / "scan.yml").exists()
 
 
+def test_ci_fuzz_uses_ci_profile(render, tmp_path: Path) -> None:
+    """Generated CI runs the property suite at `ci` strength, not the dev default.
+
+    Without this the registered 300-example `ci` Hypothesis profile is unreachable —
+    `just fuzz` defaults HYPOTHESIS_PROFILE to `dev`, so CI would fuzz at 25 examples.
+    """
+    on = render({**MINIMAL, "enable_property_tests": True}, tmp_path / "on")
+    ci = yaml.safe_load((on / ".github" / "workflows" / "ci.yml").read_text())
+    run_step = next(s for s in ci["jobs"]["ci"]["steps"] if s.get("run") == "just ci")
+    assert run_step["env"]["HYPOTHESIS_PROFILE"] == "ci"
+    # No dead env wiring when the property layer is off.
+    off = render(MINIMAL, tmp_path / "off")
+    assert "HYPOTHESIS_PROFILE" not in (off / ".github" / "workflows" / "ci.yml").read_text()
+
+
 def test_sha_pin_policy(render, tmp_path: Path) -> None:
     full = {**MINIMAL, "enable_policy_tests": True, "enable_sha_pin_policy": True}
     project = render(full, tmp_path / "out")
