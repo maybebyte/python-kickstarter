@@ -21,7 +21,7 @@ just ci            # the complete gate — must be green before pushing
 
 ## The gate
 
-`just ci` is the COMPLETE fast gate: fmt-check, lint, typecheck, test+coverage{% if enable_property_tests %}, fuzz{% endif %}{% if enable_policy_tests %}, policy{% endif %}{% if enable_dependency_audit %}, audit{% endif %}. Out-of-band:{% if enable_mutation_tests %} `just mutate` (mutation, non-gating){% endif %}{% if enable_scanners %} `just scan` (semgrep + gitleaks){% endif %}.
+`just ci` is the COMPLETE fast gate: fmt-check, lint, typecheck, test+coverage{% if enable_property_tests %}, fuzz{% endif %}{% if enable_policy_tests %}, policy{% endif %}{% if enable_dependency_audit %}, audit{% endif %}.{% if enable_mutation_tests or enable_scanners %} Out-of-band:{% if enable_mutation_tests %} `just mutate` (mutation, non-gating){% endif %}{% if enable_scanners %} `just scan` (semgrep + gitleaks){% endif %}.{% endif %}
 
 ## Add a behavior test
 
@@ -45,5 +45,5 @@ Put it in `tests/property/`. It MUST set `pytestmark = pytest.mark.property` and
 {% if enable_policy_tests %}
 ## Meta-guardrail
 
-Changing a gate (coverage floor, ruff select, type mode, Action pins) requires editing the matching test in `tests/policy/` in the SAME commit.
+Changing a gate (coverage floor, ruff select, type mode{% if enable_sha_pin_policy %}, Action pins{% endif %}) requires editing the matching test in `tests/policy/` in the SAME commit.
 {% endif -%}
