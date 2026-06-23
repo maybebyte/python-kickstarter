@@ -126,6 +126,17 @@ def test_property_layer(render, tmp_path: Path) -> None:
     assert not (off / "tests" / "property").exists()
 
 
+def test_property_marker_enforced(render, tmp_path: Path) -> None:
+    """An unmarked test under tests/property/ fails collection, not silently no-ops."""
+    project = render({**MINIMAL, "enable_property_tests": True}, tmp_path / "out")
+    (project / "tests" / "property" / "test_unmarked.py").write_text(
+        "def test_forgot_the_marker() -> None:\n    assert True\n"
+    )
+    result = run_in(project, "just", "fuzz", check=False)
+    assert result.returncode != 0
+    assert "must set the property marker" in (result.stdout + result.stderr)
+
+
 def test_policy_layer(render, tmp_path: Path) -> None:
     on = render({**MINIMAL, "enable_policy_tests": True}, tmp_path / "on")
     assert (on / "tests" / "policy" / "test_gates.py").is_file()
