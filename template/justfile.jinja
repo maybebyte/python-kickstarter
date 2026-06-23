@@ -43,6 +43,6 @@ mutate:
     uv run mutmut results
 {% endif %}{% if enable_scanners %}
 scan:
-    uvx semgrep@1.167.0 scan --config auto --config .semgrep.yml --error .
+    uvx semgrep@1.167.0 scan --config auto --config .semgrep.yml --metrics=off --error .
     gitleaks dir . --redact --exit-code 1
 {% endif -%}

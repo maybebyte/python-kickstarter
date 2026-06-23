@@ -166,6 +166,18 @@ def test_scanner_layer(render, tmp_path: Path) -> None:
     assert not (off / ".gitleaks.toml").exists()
 
 
+def test_semgrep_telemetry_disabled(render, tmp_path: Path) -> None:
+    """semgrep runs with telemetry off in both the local recipe and the CI workflow."""
+    project = render({**MINIMAL, "enable_scanners": True}, tmp_path / "out")
+    justfile = (project / "justfile").read_text()
+    scan = (project / ".github" / "workflows" / "scan.yml").read_text()
+    for text in (justfile, scan):
+        semgrep_line = next(
+            line for line in text.splitlines() if "semgrep" in line and "scan" in line
+        )
+        assert "--metrics=off" in semgrep_line
+
+
 def test_renovate_layer(render, tmp_path: Path) -> None:
     on = render({**MINIMAL, "enable_renovate": True}, tmp_path / "on")
     cfg = json.loads((on / "renovate.json").read_text())
