@@ -35,9 +35,9 @@ def test_agents_md_recipes_exist_in_justfile() -> None:
 
 def test_actions_are_sha_pinned() -> None:
     """Every third-party `uses:` is a 40-char SHA + a v-prefixed version comment."""
-    # SHA + a comment starting v<major>[.minor[.patch]]. Actions that publish only
-    # major tags (e.g. setup-just) legitimately carry "# v4"; exact-tag-vs-floating is
-    # re-checked by the maintainer at SHA-bump time via `gh api .../tags`.
+    # SHA + a version comment (v<major>[.minor[.patch]]); our pins carry the action's
+    # exact tag. The maintainer re-verifies the comment matches the SHA at bump time
+    # via `gh api .../tags`.
     pattern = re.compile(r"uses:\s*\S+@([0-9a-f]{40})\s+#\s*v\d+(\.\d+){0,2}\b")
     for wf in (ROOT / ".github" / "workflows").glob("*.yml"):
         for line in wf.read_text().splitlines():
