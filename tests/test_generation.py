@@ -177,8 +177,13 @@ def test_scanner_layer(render, tmp_path: Path) -> None:
     assert not (off / ".gitleaks.toml").exists()
 
 
-def test_semgrep_telemetry_disabled(render, tmp_path: Path) -> None:
-    """semgrep runs with telemetry off in both the local recipe and the CI workflow."""
+def test_semgrep_runs_hermetically(render, tmp_path: Path) -> None:
+    """semgrep uses only the vendored config: telemetry off, no registry `auto`.
+
+    `--config auto` is non-hermetic (its ruleset drifts) and, fatally, semgrep
+    refuses it when metrics are off; the vendored .semgrep.yml keeps scans
+    deterministic and offline. ruff's `S` rules cover the bandit baseline.
+    """
     project = render({**MINIMAL, "enable_scanners": True}, tmp_path / "out")
     justfile = (project / "justfile").read_text()
     scan = (project / ".github" / "workflows" / "scan.yml").read_text()
@@ -187,6 +192,23 @@ def test_semgrep_telemetry_disabled(render, tmp_path: Path) -> None:
             line for line in text.splitlines() if "semgrep" in line and "scan" in line
         )
         assert "--metrics=off" in semgrep_line
+        assert "--config auto" not in semgrep_line
+        assert "--config .semgrep.yml" in semgrep_line
+
+
+def test_scan_recipe_blocks_violations(render, tmp_path: Path) -> None:
+    """`just scan` actually runs semgrep and blocks on a real violation.
+
+    The vendored no-eval rule fires before the gitleaks step, so this needs no
+    gitleaks binary — it proves the recipe is wired, not merely present.
+    """
+    project = render({**MINIMAL, "enable_scanners": True}, tmp_path / "out")
+    (project / "src" / "demo_project" / "danger.py").write_text(
+        "def run(expr: str) -> object:\n    return eval(expr)\n"
+    )
+    result = run_in(project, "just", "scan", check=False)
+    assert result.returncode != 0
+    assert "eval" in (result.stdout + result.stderr).lower()
 
 
 def test_renovate_layer(render, tmp_path: Path) -> None:
@@ -206,6 +228,19 @@ def test_mutation_config(render, tmp_path: Path) -> None:
     assert "mutate:" in (on / "justfile").read_text()
     off = render(MINIMAL, tmp_path / "off")
     assert "[tool.mutmut]" not in (off / "pyproject.toml").read_text()
+
+
+def test_mutate_recipe_executes_mutants(render, tmp_path: Path) -> None:
+    """`just mutate` generates AND runs mutants, not leaving them "not checked".
+
+    A broken mutmut config (e.g. unloading pytest-cov while addopts still passes
+    --cov) silently leaves every mutant unchecked while the recipe exits 0.
+    """
+    project = render({**MINIMAL, "enable_mutation_tests": True}, tmp_path / "out")
+    result = run_in(project, "just", "mutate")
+    out = result.stdout + result.stderr
+    assert "not checked" not in out
+    assert "survived" in out or "killed" in out
 
 
 def test_ci_workflows(render, tmp_path: Path) -> None:
