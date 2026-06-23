@@ -220,6 +220,20 @@ def test_ci_fuzz_uses_ci_profile(render, tmp_path: Path) -> None:
     assert "HYPOTHESIS_PROFILE" not in (off / ".github" / "workflows" / "ci.yml").read_text()
 
 
+def test_ci_gitleaks_scans_history(render, tmp_path: Path) -> None:
+    """CI gitleaks walks commit history, not just the working tree.
+
+    The checkout uses fetch-depth: 0; `gitleaks dir` would ignore history and let a
+    committed-then-deleted secret escape, making the full clone wasted and misleading.
+    """
+    project = render({**MINIMAL, "enable_scanners": True}, tmp_path / "out")
+    scan = (project / ".github" / "workflows" / "scan.yml").read_text()
+    yaml.safe_load(scan)  # valid YAML after the multi-line gitleaks run block
+    assert "gitleaks git ." in scan
+    assert "gitleaks dir" not in scan
+    assert "fetch-depth: 0" in scan
+
+
 def test_sha_pin_policy(render, tmp_path: Path) -> None:
     full = {**MINIMAL, "enable_policy_tests": True, "enable_sha_pin_policy": True}
     project = render(full, tmp_path / "out")
