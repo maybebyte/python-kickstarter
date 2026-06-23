@@ -8,6 +8,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: mutation-{% raw %}${{ github.ref }}{% endraw %}
+  cancel-in-progress: true
+
 jobs:
   mutation:
     runs-on: ubuntu-latest

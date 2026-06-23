@@ -307,6 +307,9 @@ def test_ci_workflows(render, tmp_path: Path) -> None:
     assert "timeout-minutes:" in ci
     assert "timeout-minutes:" in (project / ".github" / "workflows" / "scan.yml").read_text()
     assert "timeout-minutes:" in (project / ".github" / "workflows" / "mutation.yml").read_text()
+    # Superseded runs cancel themselves, like ci.yml (one in-flight run per ref).
+    assert "concurrency:" in (project / ".github" / "workflows" / "scan.yml").read_text()
+    assert "concurrency:" in (project / ".github" / "workflows" / "mutation.yml").read_text()
     bare = render(MINIMAL, tmp_path / "bare")
     assert not (bare / ".github" / "workflows" / "scan.yml").exists()
 

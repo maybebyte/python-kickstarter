@@ -7,6 +7,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: scan-{% raw %}${{ github.ref }}{% endraw %}
+  cancel-in-progress: true
+
 jobs:
   scan:
     runs-on: ubuntu-latest
