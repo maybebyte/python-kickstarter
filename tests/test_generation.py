@@ -98,6 +98,17 @@ def test_package_name_rejects_python_keywords(render, tmp_path: Path, name: str)
         render({**MINIMAL, "package_name": name}, tmp_path / name)
 
 
+@pytest.mark.parametrize("name", ["", "   "])
+def test_project_name_rejects_empty(render, tmp_path: Path, name: str) -> None:
+    """project_name is free text with no default; a blank answer must be rejected.
+
+    An empty (or whitespace-only) project_name renders a nameless AGENTS.md header and
+    module docstring. Reject it at answer time, mirroring the package_name validator.
+    """
+    with pytest.raises(ValueError, match="project_name"):
+        render({**MINIMAL, "project_name": name}, tmp_path / "out")
+
+
 def test_minimal_lints_clean(render, tmp_path: Path) -> None:
     project = render(MINIMAL, tmp_path / "out")
     run_in(project, "uv", "run", "ruff", "check", ".")

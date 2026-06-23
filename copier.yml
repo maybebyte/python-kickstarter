@@ -49,6 +49,13 @@ _tasks:
 project_name:
   type: str
   help: Human-readable project name.
+  # Free text, but must not be blank: an empty title renders a nameless AGENTS.md
+  # header and module docstring. Whitespace-only is rejected too. Mirrors the
+  # package_name validator: an empty render == valid.
+  validator: >-
+    {% if not (project_name | trim) %}
+    project_name must not be empty
+    {% endif %}
 
 package_name:
   type: str
