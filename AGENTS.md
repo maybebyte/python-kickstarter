@@ -18,7 +18,15 @@ just test     # renders the answer matrix, installs each project, runs its `just
 
 ## Release
 
-Tag every release with a SemVer git tag (`copier update` targets the latest tag, NOT HEAD). Breaking renames/moves need a version-gated `_migrations` entry.
+`copier update` targets the **latest SemVer git tag, not HEAD** — an untagged template makes every downstream update silently pull in-progress commits. The repo carries no tags until the first release is cut, so tag the released commit (on `main`) before announcing it or letting any downstream consume the template:
+
+```bash
+git tag -a v0.1.0 -m "v0.1.0"   # annotate the released commit
+git push origin v0.1.0
+git describe --tags             # verify a reachable tag now exists (must succeed)
+```
+
+Breaking renames/moves need a version-gated `_migrations` entry.
 
 ## Updating a downstream project (operator preconditions)
 
