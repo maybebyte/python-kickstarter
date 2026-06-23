@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -377,6 +378,38 @@ def test_python_version_wiring(render, tmp_path: Path, version: str) -> None:
     assert f'requires-python = ">={version}"' in pyproject
     assert f'target-version = "py{version.replace(".", "")}"' in pyproject
     assert f'pythonVersion = "{version}"' in pyproject
+
+
+def test_tool_version_pins_have_no_drift(render, tmp_path: Path) -> None:
+    """Tool versions duplicated across files must agree — catches one-sided bumps.
+
+    Asserts the sites agree rather than hardcoding a version, so a legitimate bump
+    needs no edit here while a drifted (one-sided) bump fails the gate.
+    """
+    project = render(FULL, tmp_path / "out")
+    justfile = (project / "justfile").read_text()
+    scan = (project / ".github" / "workflows" / "scan.yml").read_text()
+    mise = (project / "mise.toml").read_text()
+    ci = (project / ".github" / "workflows" / "ci.yml").read_text()
+    mutation = (project / ".github" / "workflows" / "mutation.yml").read_text()
+
+    def _versions_near(keyword: str, *texts: str) -> set[str]:
+        return {
+            v
+            for text in texts
+            for line in text.splitlines()
+            if keyword in line
+            for v in re.findall(r"\d+\.\d+\.\d+", line)
+        }
+
+    # semgrep: local recipe vs CI step; gitleaks: mise pin vs CI download URL/tarball.
+    assert len(_versions_near("semgrep", justfile, scan)) == 1
+    assert len(_versions_near("gitleaks", mise, scan)) == 1
+    # uv tool: mise pin vs every setup-uv `version:` across the workflows.
+    uv_versions = set(re.findall(r'uv = "(\d+\.\d+\.\d+)"', mise))
+    for wf in (ci, scan, mutation):
+        uv_versions |= set(re.findall(r'version: "(\d+\.\d+\.\d+)"', wf))
+    assert len(uv_versions) == 1, f"uv version drift: {uv_versions}"
 
 
 def test_license_rendering(render, tmp_path: Path) -> None:
