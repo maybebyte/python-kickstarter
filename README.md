@@ -18,15 +18,15 @@ copier update --trust
 
 ## Toggles
 
-All toggles default to `false` unless noted.
+All toggles default to `true` — every guardrail layer ships unless you opt out.
 
 | Toggle | What it enables |
 |---|---|
 | `enable_property_tests` | Hypothesis property suite (`just fuzz`) |
 | `enable_mutation_tests` | mutmut mutation suite (`just mutate`) |
 | `enable_policy_tests` | stdlib policy assertions (`just policy`) |
-| `enable_scanners` | Trivy + Semgrep + gitleaks scan recipe (`just scan`) |
-| `enable_dependency_audit` | pip-audit / uv audit recipe (`just audit`) |
+| `enable_scanners` | Semgrep + gitleaks scan recipe (`just scan`) |
+| `enable_dependency_audit` | pip-audit recipe (`just audit`) |
 | `enable_renovate` | Renovate bot config |
 | `enable_sha_pin_policy` | CI policy test asserting all Action SHAs are pinned |
 
@@ -35,7 +35,7 @@ All toggles default to `false` unless noted.
 - Python ≥ 3.11
 - [uv](https://docs.astral.sh/uv/)
 - [just](https://just.systems/)
-- [Copier](https://copier.readthedocs.io/) ≥ 9
+- [Copier](https://copier.readthedocs.io/) ≥ 9.6
 
 ## Maintainers
 
