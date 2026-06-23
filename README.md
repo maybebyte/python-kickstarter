@@ -8,7 +8,7 @@ A [Copier](https://copier.readthedocs.io/) template that scaffolds a fully-gated
 copier copy --trust gh:OWNER/python-kickstarter ./myproj
 ```
 
-`--trust` is required on both copy and update because the template uses Copier's `_tasks` and `_migrations` features, which Copier classifies as "unsafe".
+`--trust` is required on both copy and update because the template uses Copier's `_tasks` (and reserves `_migrations` for future breaking renames) — features Copier classifies as "unsafe".
 
 To update a downstream project after a new template release:
 

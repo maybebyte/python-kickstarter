@@ -36,7 +36,7 @@ Breaking renames/moves need a version-gated `_migrations` entry.
 2. A git-tagged template (updates target the latest SemVer tag, not HEAD).
 3. A clean destination working tree.
 
-`copier update --trust` is required (the template's `_tasks`/`_migrations` are "unsafe" features). Conflicts surface as inline markers and always need manual review.
+`copier update --trust` is required (the template's `_tasks` — and any future `_migrations` — are "unsafe" features). Conflicts surface as inline markers and always need manual review.
 
 ## Windows omission
 
