@@ -70,7 +70,7 @@ the actual `.venv`.
 | group | count | rules | disposition |
 |---|--:|---|---|
 | render/template_root cascade (the `strict` set, now warnings) | 272 | `reportUnknown{Variable,Member,Argument,Parameter}Type`, `reportMissingParameterType` | subdivisions 1–3 below (already triaged) |
-| recommended delta | 38 | `reportUnusedCallResult` ×31, `reportAny` ×7 | subdivision 4 below |
+| recommended delta | 38 | `reportUnusedCallResult` ×31, `reportAny` ×7 | re-triaged into 5 clusters; subdivision 4 below |
 
 The **272** were categorized by a read-only, max-rigor (double-vote) triage
 workflow: 6 clusters partitioning all 272 (0 orphans), every cluster
@@ -80,11 +80,34 @@ unannotated"). Validated assumptions: `copier` needs **no stubs** (ships
 `py.typed`; the `_render -> Path` boundary contains it) and `types-PyYAML` is
 **not required**.
 
-The **38 delta** are mechanical and unambiguous — `reportUnusedCallResult` is bare
-`copier.run_copy(...)`/`run_in(...)`/`subprocess.run(...)` statements discarding a
-non-`None` result (basedpyright suggests the fix: assign to `_`); `reportAny` is
-parsed-config subscripts typed `Any` from `yaml`/`json`/`tomllib`. They carry no
-cascade and no hidden-defect risk, so they do **not** warrant a re-triage.
+The **38 delta** were then re-triaged by the same read-only double-vote workflow
+(cartographer → per-cluster skeptic + predictor → reconcile → synthesize), which
+split them into **5 clusters** and *overturned* an initial "all mechanical" read:
+
+- **C1–C3 (31 × `reportUnusedCallResult`) — mechanical.** Bare result-discarding
+  calls; the fix is the diagnostic's own suggestion, prefix `_ = `. Safe because
+  every site either defaults `check=True` (a nonzero exit *raises*, so the
+  behavior-under-test is "it did not raise") or runs purely for a filesystem side
+  effect, and no flagged site reads the return. Both votes `all-mechanical`, high
+  confidence, zero net-new findings.
+- **C4–C5 (7 × `reportAny`) — NOT mechanical (`needs-attention`).** The obvious
+  fixes *backfire* under `recommended`: `dict[str, object]` trades `reportAny` for
+  `reportIndexIssue`/`reportOperatorIssue` at every subscript, and even
+  `cast("dict[str, Any]", …)` trips `reportExplicitAny` (a `recommended` rule
+  *outside* the 38). The verified fix needs precise `TypedDict`s + targeted `cast`s
+  (Subdivision 4b). A real latent fragility surfaced as a by-product:
+  `test_generation.py:344` subscripts `run_step["env"]` unchecked, and that block
+  renders only under `enable_property_tests` — the recipe *preserves* current
+  behavior (declares `env` required, leaves L344 untouched) and **flags it for
+  human review** rather than silently changing semantics.
+
+**Empirically confirmed (count oracle).** Applying the full C1–C5 recipe to an
+isolated copy of the committed tree drove basedpyright `recommended` from **310 →
+272** — all 38 delta findings cleared, **zero new rule names** introduced (checked:
+no `reportExplicitAny`/`reportIndexIssue`/`reportTypedDictNotRequiredAccess`/
+`reportUnnecessaryCast`/`reportUnusedVariable`), the residual 272 being exactly the
+cascade baseline. So the original judgment was *partly* correct: mechanical for 31,
+wrong for the 7 `reportAny`.
 
 ### Generated projects under `recommended`: essentially clean
 
@@ -115,7 +138,7 @@ mirroring the shipped shape.
    rationale holds — arguably more so, since `recommended` tracks *all* rules).
 2. Fix the single `reportAny` in the generated policy test — template source
    `template/tests/{% if enable_policy_tests %}policy{% endif %}/test_gates.py.jinja`
-   — using the parse-typing pattern below.
+   — using the verified parse-typing recipe below (B#4b).
 3. Generation tests: no test pins the `"strict"` string, and the existing
    `run_in(project, "uv", "run", "basedpyright")` (test_generation.py:120) already
    runs the checker on a rendered project — it now exercises `recommended` and
@@ -173,20 +196,60 @@ tracks every rule basedpyright adds.
   `test_precommit_install_task_runs` (line 151; clears **3**). The one test that
   bypasses the fixture and calls `copier.run_copy` directly. Independent root.
 
-- **Subdivision 4 — clear the `recommended` delta (38)**:
-  - `reportUnusedCallResult` ×31 — prefix `_ = ` to each bare result-discarding
-    call (basedpyright's own suggested fix) across `test_generation.py` (19),
-    `test_update_roundtrip.py` (11), `conftest.py` (1). No behavior change.
-  - `reportAny` ×7 — apply the parse-typing pattern below at the `answers`/`cfg`/
-    `ci`/`run_step`/`v` sites (test_generation.py:61, 278, 342, 343×3, 544).
+- **Subdivision 4 — clear the `recommended` delta (38), re-triaged into 5
+  clusters** (read-only double-vote; dispositions above). Land the mechanical part
+  first, then the `reportAny` part with dedicated care:
+  - **4a — `reportUnusedCallResult` ×31 (clusters C1–C3, mechanical):** prefix
+    `_ = ` to each bare result-discarding call. `test_generation.py` (19): lines
+    114, 115, 120, 135, 140, 147, 148, 156, 172, 193, 367, 423, 436, 462, 482, 575,
+    582, 583, 584. `test_update_roundtrip.py` (11): lines 21, 51, 63, 72, 74, 80,
+    114, 126, 137, 143, 148. `conftest.py` (1): line 36. `_` is exempt from
+    `reportUnusedVariable`; no behavior change.
+  - **4b — `reportAny` ×7 (clusters C4–C5, `needs-attention`):** in
+    `test_generation.py`, add the typing import + precise `TypedDict`s and `cast`
+    at each parse boundary (verified recipe below). Sites: 61 (`answers`), 278
+    (`cfg`), 342 + 343×3 (`ci`/`run_step`/`s`/`s.get`), 544 (`v` from `re.findall`).
+    Carry the L344 unchecked-subscript flag for reviewer awareness; do **not**
+    rewrite it to `.get("env", {})` (that silently changes the test's semantics).
 
-**Parse-typing pattern (shared by A#2 and B#4):** type parsed config at the
-boundary so subscripts yield `object`, not `Any` — a small `cast`-based helper,
-e.g. `cast("dict[str, object]", yaml.safe_load(text))`, with nested descents using
-localized `cast`/`isinstance` narrowing. **No `# type: ignore`.** A natural home
-is a tiny helper in each repo's test `conftest.py` (the maintainer's, and — as
-extra dogfood — the generated one); the implementation plan picks the minimal
-form that drives `reportAny` to 0.
+**Parse-typing recipe (verified; shared by A#2 and B#4b).** The fix is *precise
+types*, not a blanket `cast` to `Any`/`object`. In `test_generation.py`:
+
+```python
+from typing import TypedDict, cast
+
+class _Step(TypedDict):
+    run: str
+    env: dict[str, str]      # both keys REQUIRED: total=False trips
+                             # reportTypedDictNotRequiredAccess on run_step["env"]
+
+class _CiJob(TypedDict):
+    steps: list[_Step]
+
+class _CiWorkflow(TypedDict):
+    jobs: dict[str, _CiJob]
+
+# `pre-commit` is hyphenated → functional form is mandatory (class syntax can't):
+_PreCommit = TypedDict("_PreCommit", {"enabled": bool})
+_Renovate = TypedDict("_Renovate", {"extends": list[str], "pre-commit": _PreCommit})
+```
+
+then `cast` at the three boundaries (+ the `re.findall` element):
+
+```python
+answers = cast("dict[str, str]", yaml.safe_load(...))   # L61
+cfg     = cast("_Renovate",      json.loads(...))        # L278
+ci      = cast("_CiWorkflow",    yaml.safe_load(...))    # L342 — narrows L343's whole chain
+... for v in cast("list[str]", re.findall(r"\d+\.\d+\.\d+", line))   # L544
+```
+
+**No `# type: ignore`.** Casting *from* `Any` never trips `reportUnnecessaryCast`;
+the string-literal cast targets resolve under the file's existing
+`from __future__ import annotations`. Rejected (empirically worse under
+`recommended`): `dict[str, Any]` → `reportExplicitAny`; `dict[str, object]` →
+`reportIndexIssue`; `total=False` → `reportTypedDictNotRequiredAccess`. The
+template's single generated `reportAny` (A#2) takes the same precise-`cast` shape,
+verified against the same oracle at implementation.
 
 **Recipe — `justfile`:**
 
@@ -233,7 +296,13 @@ findings**. Predicted maintainer count at each step:
 | after Subdivision 1 (type defined) | 310 |
 | after Subdivision 2 (39 `render` params) | 41 |
 | after Subdivision 3 (`template_root`) | 38 |
-| after Subdivision 4 (delta) | **0** (GREEN) |
+| after Subdivision 4a (`_ = ` ×31) | 7 |
+| after Subdivision 4b (`reportAny` recipe) | **0** (GREEN) |
+
+The 38-delta half of this path is **empirically verified** in isolation (committed
+tree, delta recipe only: 310 → 272, zero new rule names); the cascade half (S1–S3)
+is orthogonal — `reportUnusedCallResult`/`reportAny` are independent of `render`'s
+type — so the steps compose to 0.
 
 Template side: after Workstream A, re-render the matrix and run basedpyright
 `recommended` on minimal/full/app → all **0**; the maintainer's generation suite
@@ -246,9 +315,13 @@ copier-attributable `Unknown` ⇒ `py.typed` containment holds).
 
 ## Risks / tradeoffs
 
-- **`reportAny` + `cast` can be fiddly** — passing an `Any` expression through
-  `cast` must itself not re-trigger `reportAny`; the plan verifies each parse-site
-  fix against the count-to-0 oracle rather than assuming an incantation.
+- **`reportAny` was the non-mechanical risk — now retired.** The naive fixes
+  backfire (`reportExplicitAny`/`reportIndexIssue`/`reportTypedDictNotRequiredAccess`),
+  so the recipe uses precise `TypedDict`s + `cast`; it is **empirically verified**
+  (310 → 272, zero new rule names) rather than assumed. The one residual is the
+  flagged `test_generation.py:344` unchecked subscript, left behavior-preserving
+  for human review (a latent KeyError if the conditional `env:` block is ever
+  dropped — not introduced by this change).
 - **`RenderFn` precision is load-bearing** (Subdivision 1).
 - **Upgrade churn** — `recommended` tracks *every* basedpyright rule, so a minor
   bump is likelier to redden the tree; the `<1.40` cap contains it (bump
