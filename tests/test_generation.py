@@ -7,6 +7,7 @@ import re
 import tomllib
 from typing import TYPE_CHECKING, NotRequired, TypedDict, cast
 
+import copier
 import pytest
 import yaml
 
@@ -187,8 +188,6 @@ def test_precommit_config_valid(render: RenderFn, tmp_path: Path) -> None:
 
 def test_precommit_install_task_runs(template_root: Path, tmp_path: Path) -> None:
     """The copy-only hook-install task fires when the hidden flag is left at default."""
-    import copier
-
     dst = tmp_path / "installed"
     _ = copier.run_copy(
         str(template_root),
@@ -419,7 +418,9 @@ def test_sha_pin_policy(render: RenderFn, tmp_path: Path) -> None:
 
 
 def test_sha_pin_audit_ships_without_policy_tests(render: RenderFn, tmp_path: Path) -> None:
-    """enable_sha_pin_policy ships the zizmor CI audit unconditionally, but the SHA-pin
+    """The SHA-pin audit and its policy test are independent toggles.
+
+    enable_sha_pin_policy ships the zizmor CI audit unconditionally, but the SHA-pin
     *policy test* lives in tests/policy/ and needs enable_policy_tests — the toggles are
     independent. The README must not promise the test when only the audit ships.
     """
@@ -443,7 +444,9 @@ def test_sha_pin_audit_ships_without_policy_tests(render: RenderFn, tmp_path: Pa
 
 
 def test_zizmor_audit_absent_when_sha_pin_policy_off(render: RenderFn, tmp_path: Path) -> None:
-    """The zizmor CI step is gated solely on enable_sha_pin_policy and is absent from the
+    """Only this generation assertion guards the gated zizmor CI step.
+
+    The zizmor CI step is gated solely on enable_sha_pin_policy and is absent from the
     local `just scan`/`just ci` recipes, so only this generation assertion guards its CI
     surface — dropping or inverting that guard would silently delete a security gate with
     no other test failing. Render scan.yml via another layer so the file exists, then prove

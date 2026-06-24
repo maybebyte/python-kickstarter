@@ -123,7 +123,7 @@ def test_update_across_versions_has_no_conflicts(
         assert not semgrep.exists()
 
     # (d) the updated project is still green on its full gate.
-    ci = subprocess.run(["just", "ci"], cwd=dst, capture_output=True, text=True)
+    ci = subprocess.run(["just", "ci"], cwd=dst, capture_output=True, text=True, check=False)
     assert ci.returncode == 0, ci.stdout + ci.stderr
 
 
