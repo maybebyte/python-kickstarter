@@ -3,6 +3,7 @@
 import re
 import tomllib
 from pathlib import Path
+from typing import cast
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 PYPROJECT = tomllib.loads((ROOT / "pyproject.toml").read_text())
@@ -12,12 +13,12 @@ def test_coverage_floor_not_lowered() -> None:
     assert PYPROJECT["tool"]["coverage"]["report"]["fail_under"] >= {{ coverage_floor }}
 
 
-def test_type_checking_is_strict() -> None:
-    assert PYPROJECT["tool"]["basedpyright"]["typeCheckingMode"] == "strict"
+def test_type_checking_is_recommended() -> None:
+    assert PYPROJECT["tool"]["basedpyright"]["typeCheckingMode"] == "recommended"
 
 
 def test_ruff_select_present() -> None:
-    select = PYPROJECT["tool"]["ruff"]["lint"]["select"]
+    select = cast("list[str]", PYPROJECT["tool"]["ruff"]["lint"]["select"])
 {%- if ruff_ruleset == "all" %}
     assert "ALL" in select
 {%- else %}

@@ -603,3 +603,9 @@ def test_matrix(render: RenderFn, tmp_path: Path, name: str) -> None:
     _ = run_in(project, "just", "fmt-check")
     _ = run_in(project, "just", "lint")
     _ = run_in(project, "just", "typecheck")
+
+
+def test_typecheck_mode_is_recommended(render: RenderFn, tmp_path: Path) -> None:
+    """Teeth-check: the shipped gate stays at recommended; a silent revert fails here."""
+    project = render(MINIMAL, tmp_path / "out")
+    assert 'typeCheckingMode = "recommended"' in (project / "pyproject.toml").read_text()

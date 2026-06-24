@@ -28,8 +28,8 @@ package = false
 [dependency-groups]
 dev = [
     "ruff>=0.15,<0.16",
-    # strict mode is version-coupled like ruff's ALL set: a new basedpyright minor can
-    # add strict diagnostics that turn a green tree red, so cap it and bump deliberately.
+    # recommended mode is version-coupled like ruff's ALL set: it tracks every basedpyright
+    # rule, so a new minor can turn a green tree red — cap it and bump deliberately.
     "basedpyright>=1.39,<1.40",
     "pytest>=8,<9",
     "pytest-cov>=5,<8",
@@ -92,7 +92,7 @@ quote-style = "double"
 docstring-code-format = true
 
 [tool.basedpyright]
-typeCheckingMode = "strict"
+typeCheckingMode = "recommended"
 pythonVersion = "{{ python_version }}"
 include = ["src", "tests"]
 reportMissingImports = "error"
