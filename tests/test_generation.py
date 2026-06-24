@@ -6,11 +6,31 @@ import json
 import re
 import tomllib
 from pathlib import Path
+from typing import NotRequired, TypedDict, cast
 
 import pytest
 import yaml
 
 from tests.conftest import RenderFn, run_in
+
+
+class _Step(TypedDict):
+    run: NotRequired[str]            # workflow steps are heterogeneous: `uses:` steps
+    env: NotRequired[dict[str, str]] # (checkout/setup-uv) carry neither key
+
+
+class _CiJob(TypedDict):
+    steps: list[_Step]
+
+
+class _CiWorkflow(TypedDict):
+    jobs: dict[str, _CiJob]
+
+
+# `pre-commit` is hyphenated -> functional form is mandatory. These keys ARE required:
+# cfg is a single object the test itself generates and asserts.
+_PreCommit = TypedDict("_PreCommit", {"enabled": bool})
+_Renovate = TypedDict("_Renovate", {"extends": list[str], "pre-commit": _PreCommit})
 
 MINIMAL = {
     "project_name": "Demo Project",
@@ -58,7 +78,7 @@ def test_minimal_renders(render: RenderFn, tmp_path: Path) -> None:
     assert 'name = "demo_project"' in (project / "pyproject.toml").read_text()
 
     # Answers file enables `copier update`.
-    answers = yaml.safe_load((project / ".copier-answers.yml").read_text())
+    answers = cast("dict[str, object]", yaml.safe_load((project / ".copier-answers.yml").read_text()))
     assert "_src_path" in answers
     assert answers["package_name"] == "demo_project"
 
@@ -275,7 +295,7 @@ def test_scan_recipe_blocks_violations(render: RenderFn, tmp_path: Path) -> None
 
 def test_renovate_layer(render: RenderFn, tmp_path: Path) -> None:
     on = render({**MINIMAL, "enable_renovate": True}, tmp_path / "on")
-    cfg = json.loads((on / "renovate.json").read_text())
+    cfg = cast("_Renovate", json.loads((on / "renovate.json").read_text()))
     assert "helpers:pinGitHubActionDigests" in cfg["extends"]
     assert cfg["pre-commit"]["enabled"] is True
     off = render(MINIMAL, tmp_path / "off")
@@ -339,8 +359,9 @@ def test_ci_fuzz_uses_ci_profile(render: RenderFn, tmp_path: Path) -> None:
     `just fuzz` defaults HYPOTHESIS_PROFILE to `dev`, so CI would fuzz at 25 examples.
     """
     on = render({**MINIMAL, "enable_property_tests": True}, tmp_path / "on")
-    ci = yaml.safe_load((on / ".github" / "workflows" / "ci.yml").read_text())
+    ci = cast("_CiWorkflow", yaml.safe_load((on / ".github" / "workflows" / "ci.yml").read_text()))
     run_step = next(s for s in ci["jobs"]["ci"]["steps"] if s.get("run") == "just ci")
+    assert "env" in run_step  # NotRequired key: check before subscripting
     assert run_step["env"]["HYPOTHESIS_PROFILE"] == "ci"
     # No dead env wiring when the property layer is off.
     off = render(MINIMAL, tmp_path / "off")
@@ -541,7 +562,7 @@ def test_tool_version_pins_have_no_drift(render: RenderFn, tmp_path: Path) -> No
             for text in texts
             for line in text.splitlines()
             if keyword in line
-            for v in re.findall(r"\d+\.\d+\.\d+", line)
+            for v in cast("list[str]", re.findall(r"\d+\.\d+\.\d+", line))
         }
 
     # semgrep: local recipe vs CI step; gitleaks: mise pin vs CI download URL/tarball.
