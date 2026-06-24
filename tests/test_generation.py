@@ -5,18 +5,20 @@ from __future__ import annotations
 import json
 import re
 import tomllib
-from pathlib import Path
-from typing import NotRequired, TypedDict, cast
+from typing import TYPE_CHECKING, NotRequired, TypedDict, cast
 
 import pytest
 import yaml
 
 from tests.conftest import RenderFn, run_in
 
+if TYPE_CHECKING:
+    from pathlib import Path
+
 
 class _Step(TypedDict):
-    run: NotRequired[str]            # workflow steps are heterogeneous: `uses:` steps
-    env: NotRequired[dict[str, str]] # (checkout/setup-uv) carry neither key
+    run: NotRequired[str]  # workflow steps are heterogeneous: `uses:` steps
+    env: NotRequired[dict[str, str]]  # (checkout/setup-uv) carry neither key
 
 
 class _CiJob(TypedDict):
@@ -29,7 +31,10 @@ class _CiWorkflow(TypedDict):
 
 # `pre-commit` is hyphenated -> functional form is mandatory. These keys ARE required:
 # cfg is a single object the test itself generates and asserts.
-_PreCommit = TypedDict("_PreCommit", {"enabled": bool})
+class _PreCommit(TypedDict):
+    enabled: bool
+
+
 _Renovate = TypedDict("_Renovate", {"extends": list[str], "pre-commit": _PreCommit})
 
 MINIMAL = {
@@ -52,15 +57,25 @@ MINIMAL = {
     "enable_sha_pin_policy": False,
 }
 
-FULL = {**MINIMAL, "project_type": "library", "ruff_ruleset": "all",
-        "enable_property_tests": True, "enable_mutation_tests": True,
-        "enable_policy_tests": True, "enable_scanners": True,
-        "enable_dependency_audit": True, "enable_renovate": True,
-        "enable_sha_pin_policy": True}
+FULL = {
+    **MINIMAL,
+    "project_type": "library",
+    "ruff_ruleset": "all",
+    "enable_property_tests": True,
+    "enable_mutation_tests": True,
+    "enable_policy_tests": True,
+    "enable_scanners": True,
+    "enable_dependency_audit": True,
+    "enable_renovate": True,
+    "enable_sha_pin_policy": True,
+}
 
-MATRIX = {"minimal": MINIMAL, "full": FULL,
-          "app": {**MINIMAL, "project_type": "application"},
-          "curated": {**MINIMAL, "ruff_ruleset": "curated"}}
+MATRIX = {
+    "minimal": MINIMAL,
+    "full": FULL,
+    "app": {**MINIMAL, "project_type": "application"},
+    "curated": {**MINIMAL, "ruff_ruleset": "curated"},
+}
 
 
 def test_minimal_renders(render: RenderFn, tmp_path: Path) -> None:
@@ -78,7 +93,9 @@ def test_minimal_renders(render: RenderFn, tmp_path: Path) -> None:
     assert 'name = "demo_project"' in (project / "pyproject.toml").read_text()
 
     # Answers file enables `copier update`.
-    answers = cast("dict[str, object]", yaml.safe_load((project / ".copier-answers.yml").read_text()))
+    answers = cast(
+        "dict[str, object]", yaml.safe_load((project / ".copier-answers.yml").read_text())
+    )
     assert "_src_path" in answers
     assert answers["package_name"] == "demo_project"
 
@@ -260,7 +277,7 @@ def test_scanner_layer(render: RenderFn, tmp_path: Path) -> None:
 
 
 def test_semgrep_runs_hermetically(render: RenderFn, tmp_path: Path) -> None:
-    """semgrep uses only the vendored config: telemetry off, no registry `auto`.
+    """Semgrep uses only the vendored config: telemetry off, no registry `auto`.
 
     `--config auto` is non-hermetic (its ruleset drifts) and, fatally, semgrep
     refuses it when metrics are off; the vendored .semgrep.yml keeps scans
@@ -326,8 +343,13 @@ def test_mutate_recipe_executes_mutants(render: RenderFn, tmp_path: Path) -> Non
 
 
 def test_ci_workflows(render: RenderFn, tmp_path: Path) -> None:
-    full = {**MINIMAL, "enable_scanners": True, "enable_dependency_audit": True,
-            "enable_sha_pin_policy": True, "enable_mutation_tests": True}
+    full = {
+        **MINIMAL,
+        "enable_scanners": True,
+        "enable_dependency_audit": True,
+        "enable_sha_pin_policy": True,
+        "enable_mutation_tests": True,
+    }
     project = render(full, tmp_path / "out")
     ci = (project / ".github" / "workflows" / "ci.yml").read_text()
     assert "uv sync --locked" in ci
@@ -336,11 +358,15 @@ def test_ci_workflows(render: RenderFn, tmp_path: Path) -> None:
     # GitHub expressions survived Jinja rendering literally.
     assert "${{ matrix.python-version }}" in ci
     # Matrix respects requires-python (default 3.13 → no 3.11/3.12 legs).
-    assert '"3.11"' not in ci and '"3.12"' not in ci
+    assert '"3.11"' not in ci
+    assert '"3.12"' not in ci
     assert (project / ".github" / "workflows" / "scan.yml").is_file()
     assert (project / ".github" / "workflows" / "mutation.yml").is_file()
     # Mutation workflow is non-gating.
-    assert "continue-on-error: true" in (project / ".github" / "workflows" / "mutation.yml").read_text()
+    assert (
+        "continue-on-error: true"
+        in (project / ".github" / "workflows" / "mutation.yml").read_text()
+    )
     # Every job caps its runtime (else a hung step burns GitHub's 6h default).
     assert "timeout-minutes:" in ci
     assert "timeout-minutes:" in (project / ".github" / "workflows" / "scan.yml").read_text()
@@ -386,7 +412,10 @@ def test_sha_pin_policy(render: RenderFn, tmp_path: Path) -> None:
     full = {**MINIMAL, "enable_policy_tests": True, "enable_sha_pin_policy": True}
     project = render(full, tmp_path / "out")
     _ = run_in(project, "uv", "run", "pytest", "--no-cov", "tests/policy")
-    assert "test_actions_are_sha_pinned" in (project / "tests" / "policy" / "test_gates.py").read_text()
+    assert (
+        "test_actions_are_sha_pinned"
+        in (project / "tests" / "policy" / "test_gates.py").read_text()
+    )
 
 
 def test_sha_pin_audit_ships_without_policy_tests(render: RenderFn, tmp_path: Path) -> None:
@@ -434,7 +463,8 @@ def test_apache_license_renders(render: RenderFn, tmp_path: Path) -> None:
     text = (project / "LICENSE").read_text()
     assert text.lstrip().startswith("Apache License")
     # exactly one trailing newline (would otherwise fail end-of-file-fixer)
-    assert text.endswith("\n") and not text.endswith("\n\n")
+    assert text.endswith("\n")
+    assert not text.endswith("\n\n")
     # the vendored include source must not leak into the generated project
     assert not (project / "LICENSE-APACHE.txt").exists()
 
@@ -458,7 +488,12 @@ def test_application_runs(render: RenderFn, tmp_path: Path) -> None:
     # The entry point runs via `python -m` with src on the path: `package = false`
     # leaves src/ uninstalled and pytest's `pythonpath` is pytest-only, so a bare
     # `python -m` raises ModuleNotFoundError — `env PYTHONPATH=src` is required.
-    assert run_in(project, "env", "PYTHONPATH=src", "uv", "run", "python", "-m", "demo_project").returncode == 0
+    assert (
+        run_in(
+            project, "env", "PYTHONPATH=src", "uv", "run", "python", "-m", "demo_project"
+        ).returncode
+        == 0
+    )
 
 
 def test_all_toggles_on_passes_full_gate(render: RenderFn, tmp_path: Path) -> None:
@@ -516,7 +551,9 @@ def test_python_version_wiring(render: RenderFn, tmp_path: Path, version: str) -
 
 
 @pytest.mark.parametrize("floor", [0, 150])
-def test_coverage_floor_out_of_range_is_rejected(render: RenderFn, tmp_path: Path, floor: int) -> None:
+def test_coverage_floor_out_of_range_is_rejected(
+    render: RenderFn, tmp_path: Path, floor: int
+) -> None:
     """A floor outside 1..100 must be rejected at answer time, not silently rendered.
 
     fail_under <= 0 turns the coverage gate into a silent no-op; > 100 makes it

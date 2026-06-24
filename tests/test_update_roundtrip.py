@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import shutil
 import subprocess
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import copier
 import pytest
 
 from tests.test_generation import FULL, MINIMAL
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 DATA = {**MINIMAL, "enable_precommit_install": False}
 
@@ -18,11 +21,20 @@ def _git(repo: Path, *args: str) -> None:
     # commit.gpgsign=false / tag.*sign=false: a global `commit.gpgsign=true` or
     # `tag.forceSignAnnotated=true` would otherwise make these commits/tags hang
     # or fail in a signing-configured environment (the maintainer's, and CI's).
-    _ = subprocess.run(  # noqa: S603, S607
+    _ = subprocess.run(
         [
-            "git", "-c", "user.email=t@t", "-c", "user.name=t",
-            "-c", "commit.gpgsign=false", "-c", "tag.gpgsign=false",
-            "-c", "tag.forceSignAnnotated=false", *args,
+            "git",
+            "-c",
+            "user.email=t@t",
+            "-c",
+            "user.name=t",
+            "-c",
+            "commit.gpgsign=false",
+            "-c",
+            "tag.gpgsign=false",
+            "-c",
+            "tag.forceSignAnnotated=false",
+            *args,
         ],
         cwd=repo,
         check=True,
@@ -30,10 +42,13 @@ def _git(repo: Path, *args: str) -> None:
     )
 
 
-@pytest.mark.parametrize("answers", [
-    pytest.param(MINIMAL, id="minimal"),
-    pytest.param(FULL, id="full"),
-])
+@pytest.mark.parametrize(
+    "answers",
+    [
+        pytest.param(MINIMAL, id="minimal"),
+        pytest.param(FULL, id="full"),
+    ],
+)
 def test_update_across_versions_has_no_conflicts(
     template_root: Path, tmp_path: Path, answers: dict[str, object]
 ) -> None:
@@ -60,8 +75,16 @@ def test_update_across_versions_has_no_conflicts(
 
     # Generate a downstream project from the OLD tag and commit it.
     dst = tmp_path / "downstream"
-    _ = copier.run_copy(str(tpl), str(dst), data=data, defaults=True,
-                    unsafe=True, overwrite=True, quiet=True, vcs_ref="v0.1.0")
+    _ = copier.run_copy(
+        str(tpl),
+        str(dst),
+        data=data,
+        defaults=True,
+        unsafe=True,
+        overwrite=True,
+        quiet=True,
+        vcs_ref="v0.1.0",
+    )
     _git(dst, "init")
     _git(dst, "add", "-A")
     _git(dst, "commit", "-m", "init from v0.1.0")
@@ -77,12 +100,16 @@ def test_update_across_versions_has_no_conflicts(
     _git(tpl, "tag", "v0.2.0")
 
     # The real 3-way merge: update the downstream to the latest tag.
-    _ = copier.run_update(str(dst), data=data, defaults=True,
-                      unsafe=True, overwrite=True, quiet=True)
+    _ = copier.run_update(
+        str(dst), data=data, defaults=True, unsafe=True, overwrite=True, quiet=True
+    )
 
     # (a) no inline conflict markers, (b) no .rej residue.
-    markers = [p for p in dst.rglob("*") if p.is_file()
-               and "<<<<<<< before updating" in p.read_text(errors="ignore")]
+    markers = [
+        p
+        for p in dst.rglob("*")
+        if p.is_file() and "<<<<<<< before updating" in p.read_text(errors="ignore")
+    ]
     assert not markers, f"conflict markers in: {markers}"
     assert not list(dst.rglob("*.rej"))
 
@@ -90,12 +117,13 @@ def test_update_across_versions_has_no_conflicts(
     assert "<!-- changed in v0.2.0 -->" in (dst / "README.md").read_text()
     semgrep = dst / ".semgrep.yml"
     if data["enable_scanners"]:
-        assert semgrep.is_file() and "# tuned in v0.2.0" in semgrep.read_text()
+        assert semgrep.is_file()
+        assert "# tuned in v0.2.0" in semgrep.read_text()
     else:
         assert not semgrep.exists()
 
     # (d) the updated project is still green on its full gate.
-    ci = subprocess.run(["just", "ci"], cwd=dst, capture_output=True, text=True)  # noqa: S603, S607
+    ci = subprocess.run(["just", "ci"], cwd=dst, capture_output=True, text=True)
     assert ci.returncode == 0, ci.stdout + ci.stderr
 
 
@@ -123,8 +151,16 @@ def test_update_overlapping_edit_surfaces_conflict_markers(
     _git(tpl, "tag", "v0.1.0")
 
     dst = tmp_path / "downstream"
-    _ = copier.run_copy(str(tpl), str(dst), data=DATA, defaults=True,
-                    unsafe=True, overwrite=True, quiet=True, vcs_ref="v0.1.0")
+    _ = copier.run_copy(
+        str(tpl),
+        str(dst),
+        data=DATA,
+        defaults=True,
+        unsafe=True,
+        overwrite=True,
+        quiet=True,
+        vcs_ref="v0.1.0",
+    )
     _git(dst, "init")
     _git(dst, "add", "-A")
     _git(dst, "commit", "-m", "init from v0.1.0")
@@ -145,8 +181,9 @@ def test_update_overlapping_edit_surfaces_conflict_markers(
     _git(tpl, "commit", "-m", "v0.2.0 README title change")
     _git(tpl, "tag", "v0.2.0")
 
-    _ = copier.run_update(str(dst), data=DATA, defaults=True,
-                      unsafe=True, overwrite=True, quiet=True)
+    _ = copier.run_update(
+        str(dst), data=DATA, defaults=True, unsafe=True, overwrite=True, quiet=True
+    )
 
     # Copier MUST surface the conflict inline — proves the marker path still works.
     assert "<<<<<<< before updating" in (dst / "README.md").read_text()

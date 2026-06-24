@@ -28,7 +28,6 @@ def template_root() -> Path:
 @pytest.fixture
 def render(template_root: Path) -> RenderFn:
     """Render the template into a fresh dir. Fails closed if tools are missing."""
-
     missing = _missing_tools()
     if missing:
         pytest.fail(f"required tools not on PATH: {missing}")
@@ -53,7 +52,7 @@ def render(template_root: Path) -> RenderFn:
 
 def run_in(project: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
     """Run a command inside a rendered project; capture output for assertions."""
-    return subprocess.run(  # noqa: S603
+    return subprocess.run(
         list(args),
         cwd=project,
         check=check,
