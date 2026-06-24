@@ -133,6 +133,29 @@ if both exist). `typeCheckingMode` accepts the six-rung ladder above. basedpyrig
 **Decision: inline `[tool.basedpyright]`** in the maintainer `pyproject.toml`,
 mirroring the shipped shape.
 
+## Plan-time verification correction (2026-06-23)
+
+Writing the implementation plan, the maintainer remediation was run **end-to-end**
+on an isolated `git archive HEAD` copy (not just the 38-delta in isolation, as the
+original draft was). That overturned three specifics in this design; the corrections
+are folded inline above and the
+[implementation plan](../plans/2026-06-23-dogfood-typecheck.md) is authoritative:
+
+1. **`RenderFn` param is `Mapping[str, object]`, not `dict[str, object]`.** The
+   original invariance reasoning was backwards — `dict` is invariant, so a
+   `dict[str, object]` param rejects `MINIMAL` (`dict[str, str | int | bool]`) with
+   24 `reportArgumentType`. Covariant `Mapping` accepts it and is the truthful
+   read-only contract. (Subdivision 1.)
+2. **Subdivision 4a is 36 sites, not 31.** Typing `render`/`project` *unmasks* 5
+   discarded-result calls (`test_generation.py` 98, 109, 180, 268, 506) that
+   basedpyright could not flag while their types were `Unknown`. (Subdivision 4a.)
+3. **Workstream A must flip the generated policy test** `test_type_checking_is_strict`
+   → `recommended`, or the raised bar breaks every full render's `just ci` (the
+   generated `ci` recipe depends on `policy`). (Workstream A#2.)
+
+The corrected walk — 310 → 43 → 7 → 0, all four matrix renders 0, runtime green — is
+fully reproduced; no claim below rests on composition or assumption any more.
+
 ## Design
 
 ### Workstream A — template (define the shipped bar)
@@ -140,9 +163,18 @@ mirroring the shipped shape.
 1. `template/pyproject.toml.jinja` line 95: `typeCheckingMode = "strict"` →
    `"recommended"`. Update the adjacent line-31 comment (the version-coupling
    rationale holds — arguably more so, since `recommended` tracks *all* rules).
-2. Fix the single `reportAny` in the generated policy test — template source
+2. In the generated policy test — template source
    `template/tests/{% if enable_policy_tests %}policy{% endif %}/test_gates.py.jinja`
-   — using the verified parse-typing recipe below (B#4b).
+   — make two coupled edits (both verified). **(a)** Flip the self-policy:
+   `test_type_checking_is_strict` → `test_type_checking_is_recommended`, asserting
+   `== "recommended"`. This is **mandatory**, not cosmetic: the generated `justfile`'s
+   `ci` recipe depends on `policy`, so leaving the assertion at `"strict"` breaks
+   every full render's `just ci` (the maintainer's `test_full_combo_gate_green` /
+   `test_all_toggles_on_passes_full_gate` / `test_policy_layer`). The policy test
+   pins what the gate *is*; after the flip that is `recommended`. **(b)** Fix the one
+   `reportAny` at `test_gates.py:20` — `select = PYPROJECT["tool"]["ruff"]["lint"]["select"]`
+   is inferred `Any`; wrap it `cast("list[str]", …)` (the honest-`cast` shape; `select`
+   is genuinely a list of ruff rule codes) and add `from typing import cast`.
 3. Generation tests: no test pins the `"strict"` string, and the existing
    `run_in(project, "uv", "run", "basedpyright")` (test_generation.py:120) already
    runs the checker on a rendered project — it now exercises `recommended` and
@@ -179,20 +211,25 @@ tracks every rule basedpyright adds.
   must exist first:
 
   ```python
-  from collections.abc import Callable
+  from collections.abc import Callable, Mapping
   from typing import TypeAlias
-  RenderFn: TypeAlias = Callable[[dict[str, object], Path], Path]
+  RenderFn: TypeAlias = Callable[[Mapping[str, object], Path], Path]
   ```
 
-  The shape is **load-bearing and exact**: param `dict[str, object]` (a narrower
-  `dict[str, str]` raises `reportArgumentType` — `MINIMAL` carries int/bool
-  values); return exactly `Path` (a looser `object`/`Path | None` flips silent
-  `Unknown`s into loud `reportOptionalMemberAccess`/`reportAttributeAccessIssue`);
-  not bare `Callable`/`Callable[..., Path]` (ellipsis re-leaks `Unknown`). As
-  hygiene, also annotate the fixture `def render(template_root: Path) -> RenderFn:`.
+  The shape is **load-bearing and exact** (corrected at plan time — see "Plan-time
+  verification correction"): param **`Mapping[str, object]`**, which is *covariant*
+  in its value type and so accepts `MINIMAL` (inferred `dict[str, str | int | bool]`);
+  a `dict[str, object]` param does **not** — `dict` is *invariant*, so it raises
+  `reportArgumentType` on every call site (verified end-to-end). `Mapping` is also
+  the truthful contract: `render` only reads its answers. Return exactly `Path` (a
+  looser `object`/`Path | None` flips silent `Unknown`s into loud
+  `reportOptionalMemberAccess`/`reportAttributeAccessIssue`); not bare
+  `Callable`/`Callable[..., Path]` (ellipsis re-leaks `Unknown`). Also widen the
+  inner helper to `def _render(data: Mapping[str, object], dst: Path) -> Path:` and
+  annotate the fixture `def render(template_root: Path) -> RenderFn:`.
 
 - **Subdivision 2 — annotate `render: RenderFn` at all 39 consumer defs in
-  `tests/test_generation.py`** (clears **269** of the cascade). Add `RenderFn` to
+  `tests/test_generation.py`** (clears the bulk of the 272-finding cascade). Add `RenderFn` to
   the `from tests.conftest import run_in` import. Def-lines: 46, 70, 90, 102, 112,
   118, 123, 133, 138, 169, 177, 188, 198, 210, 224, 233, 242, 261, 276, 285, 295,
   308, 335, 350, 364, 371, 395, 411, 421, 430, 443, 474, 489, 498, 510, 525, 557,
@@ -200,18 +237,23 @@ tracks every rule basedpyright adds.
   whole `Path`→`str`→sink chain types out. Mirrors `test_update_roundtrip.py`.
 
 - **Subdivision 3 — annotate `template_root: Path`** in
-  `test_precommit_install_task_runs` (line 151; clears **3**). The one test that
-  bypasses the fixture and calls `copier.run_copy` directly. Independent root.
+  `test_precommit_install_task_runs` (line 151; clears the cascade's independent
+  root). The one test that bypasses the fixture and calls `copier.run_copy`
+  directly. Folded into the same commit as Subdivisions 1–2 (one boundary change).
 
 - **Subdivision 4 — clear the `recommended` delta (38), re-triaged into 5
   clusters** (read-only double-vote; dispositions above). Land the mechanical part
   first, then the `reportAny` part with dedicated care:
-  - **4a — `reportUnusedCallResult` ×31 (clusters C1–C3, mechanical):** prefix
-    `_ = ` to each bare result-discarding call. `test_generation.py` (19): lines
-    114, 115, 120, 135, 140, 147, 148, 156, 172, 193, 367, 423, 436, 462, 482, 575,
-    582, 583, 584. `test_update_roundtrip.py` (11): lines 21, 51, 63, 72, 74, 80,
-    114, 126, 137, 143, 148. `conftest.py` (1): line 36. `_` is exempt from
-    `reportUnusedVariable`; no behavior change.
+  - **4a — `reportUnusedCallResult` ×36 (clusters C1–C3, mechanical):** prefix
+    `_ = ` to each bare result-discarding call. **31 are visible at baseline; 5 more
+    (`test_generation.py` lines 98, 109, 180, 268, 506) are *unmasked* once
+    Subdivision 2 types `render`/`project`** — basedpyright can't flag a discarded
+    `Unknown`. `test_generation.py` (24): lines 98, 109, 114, 115, 120, 135, 140,
+    147, 148, 156, 172, 180, 193, 268, 367, 423, 436, 462, 482, 506, 575, 582, 583,
+    584. `test_update_roundtrip.py` (11): lines 21, 51, 63, 72, 74, 80, 114, 126,
+    137, 143, 148. `conftest.py` (1): the bare `copier.run_copy` in `_render` (line
+    40 after Subdivision 1). `_` is exempt from `reportUnusedVariable`; no behavior
+    change.
   - **4b — `reportAny` ×7 (clusters C4–C5, `needs-attention`):** in
     `test_generation.py`, add the typing import + precise `TypedDict`s and `cast`
     at each parse boundary (verified honest recipe below). Sites: 61 (`answers`),
@@ -313,16 +355,18 @@ findings**. Predicted maintainer count at each step:
 | step | expected count |
 |---|--:|
 | baseline (RED) | 310 |
-| after Subdivision 1 (type defined) | 310 |
-| after Subdivision 2 (39 `render` params) | 41 |
-| after Subdivision 3 (`template_root`) | 38 |
-| after Subdivision 4a (`_ = ` ×31) | 7 |
+| after Subdivisions 1–3 (render/copier boundary typed) | 43 |
+| after Subdivision 4a (`_ = ` ×36) | 7 |
 | after Subdivision 4b (`reportAny` recipe) | **0** (GREEN) |
 
-The 38-delta half of this path is **empirically verified** in isolation (committed
-tree, delta recipe only: 310 → 272, zero new rule names); the cascade half (S1–S3)
-is orthogonal — `reportUnusedCallResult`/`reportAny` are independent of `render`'s
-type — so the steps compose to 0.
+The **whole walk is now empirically verified end-to-end** (plan time): on an
+isolated `git archive HEAD` copy with the real gate, the counts ran exactly
+310 → 43 → 7 → 0, and the affected tests still pass at runtime (the `assert "env"
+in run_step` holds; casts are no-ops). Subdivisions 1–3 are collapsed into one
+"type the render/copier boundary" step because Subdivision 1 alone clears nothing
+and the three are one logical change; the residual 43 after it is 36
+`reportUnusedCallResult` (31 visible + 5 unmasked) + 7 `reportAny`. See "Plan-time
+verification correction".
 
 Template side: after Workstream A, re-render the matrix and run basedpyright
 `recommended` on minimal/full/app → all **0**; the maintainer's generation suite
