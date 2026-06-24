@@ -17,6 +17,16 @@ just typecheck   # basedpyright recommended over tests/ (the only Python surface
 
 The maintainer harness is held to the same `recommended` bar the template ships. CI enforces it (the `typecheck` job in `.github/workflows/test-template.yml`); `failOnWarnings` makes any finding fail the build.
 
+## Lint & format this repo
+
+```bash
+just lint        # ruff check . — select=["ALL"] over tests/ (config-derived, audited ignores)
+just fmt         # ruff format . + ruff check --fix . (apply safe fixes)
+just fmt-check   # ruff format --check . (CI's format gate)
+```
+
+The maintainer harness runs the same full `select=["ALL"]` ruleset the template ships, scoped to `tests/` (the only Python surface; `template/` is Jinja). Every config-level ignore is load-bearing and audited — there are **no inline `# noqa`**. CI enforces `ruff check` + `ruff format --check` (the `lint` job in `.github/workflows/test-template.yml`).
+
 ## Add a guardrail layer
 
 1. Add an `enable_*` toggle to `copier.yml`.
