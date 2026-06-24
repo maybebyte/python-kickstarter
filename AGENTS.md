@@ -9,6 +9,14 @@ uv sync
 just test     # renders the answer matrix, installs each project, runs its `just ci`
 ```
 
+## Type-check this repo
+
+```bash
+just typecheck   # basedpyright recommended over tests/ (the only Python surface; no src/)
+```
+
+The maintainer harness is held to the same `recommended` bar the template ships. CI enforces it (the `typecheck` job in `.github/workflows/test-template.yml`); `failOnWarnings` makes any finding fail the build.
+
 ## Add a guardrail layer
 
 1. Add an `enable_*` toggle to `copier.yml`.
