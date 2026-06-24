@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from tests.conftest import run_in
+from tests.conftest import RenderFn, run_in
 
 MINIMAL = {
     "project_name": "Demo Project",
@@ -43,7 +43,7 @@ MATRIX = {"minimal": MINIMAL, "full": FULL,
           "curated": {**MINIMAL, "ruff_ruleset": "curated"}}
 
 
-def test_minimal_renders(render, tmp_path: Path) -> None:
+def test_minimal_renders(render: RenderFn, tmp_path: Path) -> None:
     project = render(MINIMAL, tmp_path / "out")
 
     # Package laid out under src/, py.typed shipped.
@@ -67,7 +67,7 @@ def test_minimal_renders(render, tmp_path: Path) -> None:
     assert not (project / "{{ _copier_conf.answers_file }}.jinja").exists()
 
 
-def test_free_text_answers_are_toml_and_python_safe(render, tmp_path: Path) -> None:
+def test_free_text_answers_are_toml_and_python_safe(render: RenderFn, tmp_path: Path) -> None:
     """A double-quote (or backslash) in free-text answers must not abort generation.
 
     description/author_name/author_email are interpolated into double-quoted TOML and the
@@ -87,7 +87,7 @@ def test_free_text_answers_are_toml_and_python_safe(render, tmp_path: Path) -> N
 
 
 @pytest.mark.parametrize("name", ["class", "import", "for", "as"])
-def test_package_name_rejects_python_keywords(render, tmp_path: Path, name: str) -> None:
+def test_package_name_rejects_python_keywords(render: RenderFn, tmp_path: Path, name: str) -> None:
     """A Python keyword passes the identifier-shape regex but is unimportable.
 
     `package_name = "class"` renders `src/class/`, but `import class` is a SyntaxError
@@ -99,7 +99,7 @@ def test_package_name_rejects_python_keywords(render, tmp_path: Path, name: str)
 
 
 @pytest.mark.parametrize("name", ["", "   "])
-def test_project_name_rejects_empty(render, tmp_path: Path, name: str) -> None:
+def test_project_name_rejects_empty(render: RenderFn, tmp_path: Path, name: str) -> None:
     """project_name is free text with no default; a blank answer must be rejected.
 
     An empty (or whitespace-only) project_name renders a nameless AGENTS.md header and
@@ -109,18 +109,18 @@ def test_project_name_rejects_empty(render, tmp_path: Path, name: str) -> None:
         render({**MINIMAL, "project_name": name}, tmp_path / "out")
 
 
-def test_minimal_lints_clean(render, tmp_path: Path) -> None:
+def test_minimal_lints_clean(render: RenderFn, tmp_path: Path) -> None:
     project = render(MINIMAL, tmp_path / "out")
     run_in(project, "uv", "run", "ruff", "check", ".")
     run_in(project, "uv", "run", "ruff", "format", "--check", ".")
 
 
-def test_minimal_typechecks(render, tmp_path: Path) -> None:
+def test_minimal_typechecks(render: RenderFn, tmp_path: Path) -> None:
     project = render(MINIMAL, tmp_path / "out")
     run_in(project, "uv", "run", "basedpyright")
 
 
-def test_minimal_tests_pass_with_coverage(render, tmp_path: Path) -> None:
+def test_minimal_tests_pass_with_coverage(render: RenderFn, tmp_path: Path) -> None:
     project = render(MINIMAL, tmp_path / "out")
     result = run_in(project, "uv", "run", "pytest", "-m", "not property", "tests/unit")
     # Not just "ran": require both a pass AND the coverage report, so the test can't
@@ -130,12 +130,12 @@ def test_minimal_tests_pass_with_coverage(render, tmp_path: Path) -> None:
     assert "coverage:" in result.stdout
 
 
-def test_minimal_just_ci_green(render, tmp_path: Path) -> None:
+def test_minimal_just_ci_green(render: RenderFn, tmp_path: Path) -> None:
     project = render(MINIMAL, tmp_path / "out")
     run_in(project, "just", "ci")
 
 
-def test_precommit_config_valid(render, tmp_path: Path) -> None:
+def test_precommit_config_valid(render: RenderFn, tmp_path: Path) -> None:
     project = render(MINIMAL, tmp_path / "out")
     run_in(project, "uv", "run", "pre-commit", "validate-config", ".pre-commit-config.yaml")
     text = (project / ".pre-commit-config.yaml").read_text()
@@ -148,7 +148,7 @@ def test_precommit_config_valid(render, tmp_path: Path) -> None:
     run_in(project, "uv", "run", "pre-commit", "run", "--all-files")
 
 
-def test_precommit_install_task_runs(template_root, tmp_path: Path) -> None:
+def test_precommit_install_task_runs(template_root: Path, tmp_path: Path) -> None:
     """The copy-only hook-install task fires when the hidden flag is left at default."""
     import copier
 
@@ -166,7 +166,7 @@ def test_precommit_install_task_runs(template_root, tmp_path: Path) -> None:
     assert (dst / ".git" / "hooks" / "pre-push").exists()
 
 
-def test_property_layer(render, tmp_path: Path) -> None:
+def test_property_layer(render: RenderFn, tmp_path: Path) -> None:
     on = render({**MINIMAL, "enable_property_tests": True}, tmp_path / "on")
     assert (on / "tests" / "property" / "test_example_property.py").is_file()
     run_in(on, "just", "fuzz")
@@ -174,7 +174,7 @@ def test_property_layer(render, tmp_path: Path) -> None:
     assert not (off / "tests" / "property").exists()
 
 
-def test_property_marker_enforced(render, tmp_path: Path) -> None:
+def test_property_marker_enforced(render: RenderFn, tmp_path: Path) -> None:
     """An unmarked test under tests/property/ fails collection, not silently no-ops."""
     project = render({**MINIMAL, "enable_property_tests": True}, tmp_path / "out")
     (project / "tests" / "property" / "test_unmarked.py").write_text(
@@ -185,7 +185,7 @@ def test_property_marker_enforced(render, tmp_path: Path) -> None:
     assert "must set the property marker" in (result.stdout + result.stderr)
 
 
-def test_policy_layer(render, tmp_path: Path) -> None:
+def test_policy_layer(render: RenderFn, tmp_path: Path) -> None:
     on = render({**MINIMAL, "enable_policy_tests": True}, tmp_path / "on")
     assert (on / "tests" / "policy" / "test_gates.py").is_file()
     # --no-cov: policy tests import no package code; the global --cov + fail_under
@@ -195,7 +195,7 @@ def test_policy_layer(render, tmp_path: Path) -> None:
     assert not (off / "tests" / "policy").exists()
 
 
-def test_agent_contract(render, tmp_path: Path) -> None:
+def test_agent_contract(render: RenderFn, tmp_path: Path) -> None:
     full = {**MINIMAL, "enable_property_tests": True, "enable_policy_tests": True}
     project = render(full, tmp_path / "out")
     assert (project / "CLAUDE.md").read_text().strip() == "@AGENTS.md"
@@ -207,7 +207,7 @@ def test_agent_contract(render, tmp_path: Path) -> None:
     assert "tests/property" not in (minimal / "AGENTS.md").read_text()
 
 
-def test_agents_outofband_items_are_separated(render, tmp_path: Path) -> None:
+def test_agents_outofband_items_are_separated(render: RenderFn, tmp_path: Path) -> None:
     """With both mutation and scanners on, the two Out-of-band items need a separator.
 
     Without one the gate line renders `...(mutation, non-gating) `just scan`...` with the
@@ -221,7 +221,7 @@ def test_agents_outofband_items_are_separated(render, tmp_path: Path) -> None:
     assert "non-gating) `just scan`" not in agents
 
 
-def test_audit_layer(render, tmp_path: Path) -> None:
+def test_audit_layer(render: RenderFn, tmp_path: Path) -> None:
     on = render({**MINIMAL, "enable_dependency_audit": True}, tmp_path / "on")
     result = run_in(on, "just", "audit")
     # Prove pip-audit actually executed (not a vacuous exit-0 on empty input).
@@ -230,7 +230,7 @@ def test_audit_layer(render, tmp_path: Path) -> None:
     assert "audit:" not in (off / "justfile").read_text()
 
 
-def test_scanner_layer(render, tmp_path: Path) -> None:
+def test_scanner_layer(render: RenderFn, tmp_path: Path) -> None:
     on = render({**MINIMAL, "enable_scanners": True}, tmp_path / "on")
     assert (on / ".gitleaks.toml").is_file()
     assert (on / ".semgrep.yml").is_file()
@@ -239,7 +239,7 @@ def test_scanner_layer(render, tmp_path: Path) -> None:
     assert not (off / ".gitleaks.toml").exists()
 
 
-def test_semgrep_runs_hermetically(render, tmp_path: Path) -> None:
+def test_semgrep_runs_hermetically(render: RenderFn, tmp_path: Path) -> None:
     """semgrep uses only the vendored config: telemetry off, no registry `auto`.
 
     `--config auto` is non-hermetic (its ruleset drifts) and, fatally, semgrep
@@ -258,7 +258,7 @@ def test_semgrep_runs_hermetically(render, tmp_path: Path) -> None:
         assert "--config .semgrep.yml" in semgrep_line
 
 
-def test_scan_recipe_blocks_violations(render, tmp_path: Path) -> None:
+def test_scan_recipe_blocks_violations(render: RenderFn, tmp_path: Path) -> None:
     """`just scan` actually runs semgrep and blocks on a real violation.
 
     The vendored no-eval rule fires before the gitleaks step, so this needs no
@@ -273,7 +273,7 @@ def test_scan_recipe_blocks_violations(render, tmp_path: Path) -> None:
     assert "eval" in (result.stdout + result.stderr).lower()
 
 
-def test_renovate_layer(render, tmp_path: Path) -> None:
+def test_renovate_layer(render: RenderFn, tmp_path: Path) -> None:
     on = render({**MINIMAL, "enable_renovate": True}, tmp_path / "on")
     cfg = json.loads((on / "renovate.json").read_text())
     assert "helpers:pinGitHubActionDigests" in cfg["extends"]
@@ -282,7 +282,7 @@ def test_renovate_layer(render, tmp_path: Path) -> None:
     assert not (off / "renovate.json").exists()
 
 
-def test_mutation_config(render, tmp_path: Path) -> None:
+def test_mutation_config(render: RenderFn, tmp_path: Path) -> None:
     on = render({**MINIMAL, "enable_mutation_tests": True}, tmp_path / "on")
     pyproject = (on / "pyproject.toml").read_text()
     assert "[tool.mutmut]" in pyproject
@@ -292,7 +292,7 @@ def test_mutation_config(render, tmp_path: Path) -> None:
     assert "[tool.mutmut]" not in (off / "pyproject.toml").read_text()
 
 
-def test_mutate_recipe_executes_mutants(render, tmp_path: Path) -> None:
+def test_mutate_recipe_executes_mutants(render: RenderFn, tmp_path: Path) -> None:
     """`just mutate` generates AND runs mutants, not leaving them "not checked".
 
     A broken mutmut config (e.g. unloading pytest-cov while addopts still passes
@@ -305,7 +305,7 @@ def test_mutate_recipe_executes_mutants(render, tmp_path: Path) -> None:
     assert "survived" in out or "killed" in out
 
 
-def test_ci_workflows(render, tmp_path: Path) -> None:
+def test_ci_workflows(render: RenderFn, tmp_path: Path) -> None:
     full = {**MINIMAL, "enable_scanners": True, "enable_dependency_audit": True,
             "enable_sha_pin_policy": True, "enable_mutation_tests": True}
     project = render(full, tmp_path / "out")
@@ -332,7 +332,7 @@ def test_ci_workflows(render, tmp_path: Path) -> None:
     assert not (bare / ".github" / "workflows" / "scan.yml").exists()
 
 
-def test_ci_fuzz_uses_ci_profile(render, tmp_path: Path) -> None:
+def test_ci_fuzz_uses_ci_profile(render: RenderFn, tmp_path: Path) -> None:
     """Generated CI runs the property suite at `ci` strength, not the dev default.
 
     Without this the registered 300-example `ci` Hypothesis profile is unreachable —
@@ -347,7 +347,7 @@ def test_ci_fuzz_uses_ci_profile(render, tmp_path: Path) -> None:
     assert "HYPOTHESIS_PROFILE" not in (off / ".github" / "workflows" / "ci.yml").read_text()
 
 
-def test_ci_gitleaks_scans_history(render, tmp_path: Path) -> None:
+def test_ci_gitleaks_scans_history(render: RenderFn, tmp_path: Path) -> None:
     """CI gitleaks walks commit history, not just the working tree.
 
     The checkout uses fetch-depth: 0; `gitleaks dir` would ignore history and let a
@@ -361,14 +361,14 @@ def test_ci_gitleaks_scans_history(render, tmp_path: Path) -> None:
     assert "fetch-depth: 0" in scan
 
 
-def test_sha_pin_policy(render, tmp_path: Path) -> None:
+def test_sha_pin_policy(render: RenderFn, tmp_path: Path) -> None:
     full = {**MINIMAL, "enable_policy_tests": True, "enable_sha_pin_policy": True}
     project = render(full, tmp_path / "out")
     run_in(project, "uv", "run", "pytest", "--no-cov", "tests/policy")
     assert "test_actions_are_sha_pinned" in (project / "tests" / "policy" / "test_gates.py").read_text()
 
 
-def test_sha_pin_audit_ships_without_policy_tests(render, tmp_path: Path) -> None:
+def test_sha_pin_audit_ships_without_policy_tests(render: RenderFn, tmp_path: Path) -> None:
     """enable_sha_pin_policy ships the zizmor CI audit unconditionally, but the SHA-pin
     *policy test* lives in tests/policy/ and needs enable_policy_tests — the toggles are
     independent. The README must not promise the test when only the audit ships.
@@ -392,7 +392,7 @@ def test_sha_pin_audit_ships_without_policy_tests(render, tmp_path: Path) -> Non
     )
 
 
-def test_zizmor_audit_absent_when_sha_pin_policy_off(render, tmp_path: Path) -> None:
+def test_zizmor_audit_absent_when_sha_pin_policy_off(render: RenderFn, tmp_path: Path) -> None:
     """The zizmor CI step is gated solely on enable_sha_pin_policy and is absent from the
     local `just scan`/`just ci` recipes, so only this generation assertion guards its CI
     surface — dropping or inverting that guard would silently delete a security gate with
@@ -408,7 +408,7 @@ def test_zizmor_audit_absent_when_sha_pin_policy_off(render, tmp_path: Path) -> 
     assert "zizmor" not in scan
 
 
-def test_apache_license_renders(render, tmp_path: Path) -> None:
+def test_apache_license_renders(render: RenderFn, tmp_path: Path) -> None:
     project = render({**MINIMAL, "license": "Apache-2.0"}, tmp_path / "out")
     text = (project / "LICENSE").read_text()
     assert text.lstrip().startswith("Apache License")
@@ -418,7 +418,7 @@ def test_apache_license_renders(render, tmp_path: Path) -> None:
     assert not (project / "LICENSE-APACHE.txt").exists()
 
 
-def test_library_builds(render, tmp_path: Path) -> None:
+def test_library_builds(render: RenderFn, tmp_path: Path) -> None:
     project = render({**MINIMAL, "project_type": "library"}, tmp_path / "lib")
     run_in(project, "uv", "build")
     assert list((project / "dist").glob("*.whl"))
@@ -427,7 +427,7 @@ def test_library_builds(render, tmp_path: Path) -> None:
     assert not (pkg / "__main__.py").exists()
 
 
-def test_application_runs(render, tmp_path: Path) -> None:
+def test_application_runs(render: RenderFn, tmp_path: Path) -> None:
     project = render({**MINIMAL, "project_type": "application"}, tmp_path / "app")
     pyproject = (project / "pyproject.toml").read_text()
     assert "package = false" in pyproject
@@ -440,7 +440,7 @@ def test_application_runs(render, tmp_path: Path) -> None:
     assert run_in(project, "env", "PYTHONPATH=src", "uv", "run", "python", "-m", "demo_project").returncode == 0
 
 
-def test_all_toggles_on_passes_full_gate(render, tmp_path: Path) -> None:
+def test_all_toggles_on_passes_full_gate(render: RenderFn, tmp_path: Path) -> None:
     """Every guardrail layer ON: the generated project passes its own pre-commit + `just ci`.
 
     Closes the toggle-ON gate-coverage gap — `test_precommit_config_valid` only exercises MINIMAL,
@@ -471,7 +471,7 @@ def test_all_toggles_on_passes_full_gate(render, tmp_path: Path) -> None:
     )
 
 
-def test_curated_ruleset(render, tmp_path: Path) -> None:
+def test_curated_ruleset(render: RenderFn, tmp_path: Path) -> None:
     project = render({**MINIMAL, "ruff_ruleset": "curated"}, tmp_path / "out")
     pyproject = (project / "pyproject.toml").read_text()
     assert 'select = ["E", "F"' in pyproject
@@ -486,7 +486,7 @@ def test_curated_ruleset(render, tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("version", ["3.11", "3.12", "3.13"])
-def test_python_version_wiring(render, tmp_path: Path, version: str) -> None:
+def test_python_version_wiring(render: RenderFn, tmp_path: Path, version: str) -> None:
     project = render({**MINIMAL, "python_version": version}, tmp_path / version)
     pyproject = (project / "pyproject.toml").read_text()
     assert f'requires-python = ">={version}"' in pyproject
@@ -495,7 +495,7 @@ def test_python_version_wiring(render, tmp_path: Path, version: str) -> None:
 
 
 @pytest.mark.parametrize("floor", [0, 150])
-def test_coverage_floor_out_of_range_is_rejected(render, tmp_path: Path, floor: int) -> None:
+def test_coverage_floor_out_of_range_is_rejected(render: RenderFn, tmp_path: Path, floor: int) -> None:
     """A floor outside 1..100 must be rejected at answer time, not silently rendered.
 
     fail_under <= 0 turns the coverage gate into a silent no-op; > 100 makes it
@@ -507,7 +507,7 @@ def test_coverage_floor_out_of_range_is_rejected(render, tmp_path: Path, floor: 
 
 
 @pytest.mark.parametrize("floor", [70, 95])
-def test_coverage_floor_wiring(render, tmp_path: Path, floor: int) -> None:
+def test_coverage_floor_wiring(render: RenderFn, tmp_path: Path, floor: int) -> None:
     """A non-default coverage_floor lands literally in pyproject and the policy gate.
 
     Mirrors test_python_version_wiring: without this, a regression that hardcodes
@@ -522,7 +522,7 @@ def test_coverage_floor_wiring(render, tmp_path: Path, floor: int) -> None:
     assert f'["fail_under"] >= {floor}' in gate
 
 
-def test_tool_version_pins_have_no_drift(render, tmp_path: Path) -> None:
+def test_tool_version_pins_have_no_drift(render: RenderFn, tmp_path: Path) -> None:
     """Tool versions duplicated across files must agree — catches one-sided bumps.
 
     Asserts the sites agree rather than hardcoding a version, so a legitimate bump
@@ -554,7 +554,7 @@ def test_tool_version_pins_have_no_drift(render, tmp_path: Path) -> None:
     assert len(uv_versions) == 1, f"uv version drift: {uv_versions}"
 
 
-def test_license_rendering(render, tmp_path: Path) -> None:
+def test_license_rendering(render: RenderFn, tmp_path: Path) -> None:
     mit = render({**MINIMAL, "license": "MIT"}, tmp_path / "mit")
     mit_text = (mit / "LICENSE").read_text()
     assert "MIT License" in mit_text
@@ -569,14 +569,14 @@ def test_license_rendering(render, tmp_path: Path) -> None:
         assert "\n...\n" not in (variant / "LICENSE").read_text()
 
 
-def test_full_combo_gate_green(render, tmp_path: Path) -> None:
+def test_full_combo_gate_green(render: RenderFn, tmp_path: Path) -> None:
     """The gold-standard check: a fully-loaded project is green on `just ci`."""
     project = render(FULL, tmp_path / "full")
     run_in(project, "just", "ci")
 
 
 @pytest.mark.parametrize("name", list(MATRIX))
-def test_matrix(render, tmp_path: Path, name: str) -> None:
+def test_matrix(render: RenderFn, tmp_path: Path, name: str) -> None:
     project = render(MATRIX[name], tmp_path / name)
     # Fast subset for every combo; the full `just ci` is exercised by test_full_combo_gate_green.
     run_in(project, "just", "fmt-check")

@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+from collections.abc import Callable, Mapping
 from pathlib import Path
+from typing import TypeAlias
 
 import copier
 import pytest
 
 REQUIRED_TOOLS = ("uv", "just", "git")
+
+RenderFn: TypeAlias = Callable[[Mapping[str, object], Path], Path]
 
 
 def _missing_tools() -> list[str]:
@@ -22,14 +26,14 @@ def template_root() -> Path:
 
 
 @pytest.fixture
-def render(template_root: Path):
+def render(template_root: Path) -> RenderFn:
     """Render the template into a fresh dir. Fails closed if tools are missing."""
 
     missing = _missing_tools()
     if missing:
         pytest.fail(f"required tools not on PATH: {missing}")
 
-    def _render(data: dict[str, object], dst: Path) -> Path:
+    def _render(data: Mapping[str, object], dst: Path) -> Path:
         # Generation renders skip the slow pre-commit hook-install task (the config
         # does not exist until that layer is added). A dedicated test in Task 7
         # exercises the install path with the flag left at its default.
