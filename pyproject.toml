@@ -13,6 +13,7 @@ dev = [
     "pytest>=8",
     "pyyaml>=6",
     "basedpyright>=1.39,<1.40",
+    "ruff>=0.15,<0.16",
 ]
 
 [tool.pytest.ini_options]
@@ -30,3 +31,45 @@ pythonVersion = "3.11"             # the requires-python floor
 include = ["tests"]                # the only Python surface; there is no src/
 exclude = ["template", "**/__pycache__", "**/.venv"]  # template/ is Jinja, never Python
 reportMissingImports = "error"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"            # the requires-python floor (template uses the chosen python_version)
+extend-exclude = ["template"]       # parity with basedpyright; template/ is Jinja, count-neutral
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "COM812",   # formatter-owned: conflicts with `ruff format` (ruff's own formatter-compat guidance)
+    "ISC001",   # formatter-owned: the documented companion to COM812 under `ruff format`
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.pylint]
+max-args = 8
+max-branches = 12
+max-returns = 6
+max-statements = 50
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"               # selects D211/D212; resolves the D203/D213 conflicts by convention
+
+[tool.ruff.lint.isort]
+known-first-party = ["tests"]       # no package — tests/ is the only first-party root
+
+[tool.ruff.lint.per-file-ignores]
+# The only Python surface is the pytest harness under tests/.
+"tests/**" = [
+    "S101",     # pytest IS assert-based (it rewrites bare asserts for introspection)
+    "PLR2004",  # a literal threshold is the substance of a test assertion
+    "S603",     # the harness deliberately drives git/just/uv; inputs are literal command lists
+    "S607",     # ...invoked by name on PATH (shutil.which over REQUIRED_TOOLS); absolute paths regress portability
+    "D103",     # test functions are self-documenting via descriptive names
+    "D104",     # tests/ is an (empty) package marker
+]
+
+[tool.ruff.format]
+quote-style = "double"
+docstring-code-format = true
