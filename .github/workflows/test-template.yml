@@ -67,3 +67,21 @@ jobs:
         run: uv sync
       - name: Type-check (basedpyright recommended)
         run: uv run basedpyright
+
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with:
+          version: "0.11.23"
+          enable-cache: true
+      - name: Install dependencies
+        run: uv sync
+      - name: Lint (ruff check, select=ALL)
+        run: uv run ruff check .
+      - name: Format check (ruff format --check)
+        run: uv run ruff format --check .
