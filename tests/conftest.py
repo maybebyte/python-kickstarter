@@ -37,7 +37,7 @@ def render(template_root: Path) -> RenderFn:
         # Generation renders skip the slow pre-commit hook-install task (the config
         # does not exist until that layer is added). A dedicated test in Task 7
         # exercises the install path with the flag left at its default.
-        copier.run_copy(
+        _ = copier.run_copy(
             str(template_root),
             str(dst),
             data={"enable_precommit_install": False, **data},

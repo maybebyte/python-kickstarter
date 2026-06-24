@@ -18,7 +18,7 @@ def _git(repo: Path, *args: str) -> None:
     # commit.gpgsign=false / tag.*sign=false: a global `commit.gpgsign=true` or
     # `tag.forceSignAnnotated=true` would otherwise make these commits/tags hang
     # or fail in a signing-configured environment (the maintainer's, and CI's).
-    subprocess.run(  # noqa: S603, S607
+    _ = subprocess.run(  # noqa: S603, S607
         [
             "git", "-c", "user.email=t@t", "-c", "user.name=t",
             "-c", "commit.gpgsign=false", "-c", "tag.gpgsign=false",
@@ -48,7 +48,7 @@ def test_update_across_versions_has_no_conflicts(
 
     # Work on a throwaway copy so the real template repo is never mutated.
     tpl = tmp_path / "template-copy"
-    shutil.copytree(
+    _ = shutil.copytree(
         template_root,
         tpl,
         ignore=shutil.ignore_patterns(".git", ".venv", "dist", ".pytest_cache", "__pycache__"),
@@ -60,7 +60,7 @@ def test_update_across_versions_has_no_conflicts(
 
     # Generate a downstream project from the OLD tag and commit it.
     dst = tmp_path / "downstream"
-    copier.run_copy(str(tpl), str(dst), data=data, defaults=True,
+    _ = copier.run_copy(str(tpl), str(dst), data=data, defaults=True,
                     unsafe=True, overwrite=True, quiet=True, vcs_ref="v0.1.0")
     _git(dst, "init")
     _git(dst, "add", "-A")
@@ -69,15 +69,15 @@ def test_update_across_versions_has_no_conflicts(
     # v0.2.0 template change: an always-present file (README) plus a scanners-only file,
     # so a layered update merges a conditional guardrail surface, not just the README.
     readme = tpl / "template" / "README.md.jinja"
-    readme.write_text(readme.read_text() + "\n<!-- changed in v0.2.0 -->\n")
+    _ = readme.write_text(readme.read_text() + "\n<!-- changed in v0.2.0 -->\n")
     semgrep_tpl = tpl / "template" / "{% if enable_scanners %}.semgrep.yml{% endif %}.jinja"
-    semgrep_tpl.write_text(semgrep_tpl.read_text() + "\n# tuned in v0.2.0\n")
+    _ = semgrep_tpl.write_text(semgrep_tpl.read_text() + "\n# tuned in v0.2.0\n")
     _git(tpl, "add", "-A")
     _git(tpl, "commit", "-m", "v0.2.0 change")
     _git(tpl, "tag", "v0.2.0")
 
     # The real 3-way merge: update the downstream to the latest tag.
-    copier.run_update(str(dst), data=data, defaults=True,
+    _ = copier.run_update(str(dst), data=data, defaults=True,
                       unsafe=True, overwrite=True, quiet=True)
 
     # (a) no inline conflict markers, (b) no .rej residue.
@@ -111,7 +111,7 @@ def test_update_overlapping_edit_surfaces_conflict_markers(
     because no merge path is ever exercised.
     """
     tpl = tmp_path / "template-copy"
-    shutil.copytree(
+    _ = shutil.copytree(
         template_root,
         tpl,
         ignore=shutil.ignore_patterns(".git", ".venv", "dist", ".pytest_cache", "__pycache__"),
@@ -123,7 +123,7 @@ def test_update_overlapping_edit_surfaces_conflict_markers(
     _git(tpl, "tag", "v0.1.0")
 
     dst = tmp_path / "downstream"
-    copier.run_copy(str(tpl), str(dst), data=DATA, defaults=True,
+    _ = copier.run_copy(str(tpl), str(dst), data=DATA, defaults=True,
                     unsafe=True, overwrite=True, quiet=True, vcs_ref="v0.1.0")
     _git(dst, "init")
     _git(dst, "add", "-A")
@@ -134,18 +134,18 @@ def test_update_overlapping_edit_surfaces_conflict_markers(
     dst_readme = dst / "README.md"
     dst_lines = dst_readme.read_text().splitlines()
     dst_lines[0] = "# Locally renamed title"
-    dst_readme.write_text("\n".join(dst_lines) + "\n")
+    _ = dst_readme.write_text("\n".join(dst_lines) + "\n")
     _git(dst, "add", "-A")
     _git(dst, "commit", "-m", "local edit to README title")
 
     tpl_lines = readme_tpl.read_text().splitlines()
     tpl_lines[0] = "# Upstream-renamed title in v0.2.0"
-    readme_tpl.write_text("\n".join(tpl_lines) + "\n")
+    _ = readme_tpl.write_text("\n".join(tpl_lines) + "\n")
     _git(tpl, "add", "-A")
     _git(tpl, "commit", "-m", "v0.2.0 README title change")
     _git(tpl, "tag", "v0.2.0")
 
-    copier.run_update(str(dst), data=DATA, defaults=True,
+    _ = copier.run_update(str(dst), data=DATA, defaults=True,
                       unsafe=True, overwrite=True, quiet=True)
 
     # Copier MUST surface the conflict inline — proves the marker path still works.

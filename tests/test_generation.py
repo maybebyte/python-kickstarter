@@ -95,7 +95,7 @@ def test_package_name_rejects_python_keywords(render: RenderFn, tmp_path: Path, 
     the validator must also reject keywords.
     """
     with pytest.raises(ValueError, match="package_name"):
-        render({**MINIMAL, "package_name": name}, tmp_path / name)
+        _ = render({**MINIMAL, "package_name": name}, tmp_path / name)
 
 
 @pytest.mark.parametrize("name", ["", "   "])
@@ -106,18 +106,18 @@ def test_project_name_rejects_empty(render: RenderFn, tmp_path: Path, name: str)
     module docstring. Reject it at answer time, mirroring the package_name validator.
     """
     with pytest.raises(ValueError, match="project_name"):
-        render({**MINIMAL, "project_name": name}, tmp_path / "out")
+        _ = render({**MINIMAL, "project_name": name}, tmp_path / "out")
 
 
 def test_minimal_lints_clean(render: RenderFn, tmp_path: Path) -> None:
     project = render(MINIMAL, tmp_path / "out")
-    run_in(project, "uv", "run", "ruff", "check", ".")
-    run_in(project, "uv", "run", "ruff", "format", "--check", ".")
+    _ = run_in(project, "uv", "run", "ruff", "check", ".")
+    _ = run_in(project, "uv", "run", "ruff", "format", "--check", ".")
 
 
 def test_minimal_typechecks(render: RenderFn, tmp_path: Path) -> None:
     project = render(MINIMAL, tmp_path / "out")
-    run_in(project, "uv", "run", "basedpyright")
+    _ = run_in(project, "uv", "run", "basedpyright")
 
 
 def test_minimal_tests_pass_with_coverage(render: RenderFn, tmp_path: Path) -> None:
@@ -132,20 +132,20 @@ def test_minimal_tests_pass_with_coverage(render: RenderFn, tmp_path: Path) -> N
 
 def test_minimal_just_ci_green(render: RenderFn, tmp_path: Path) -> None:
     project = render(MINIMAL, tmp_path / "out")
-    run_in(project, "just", "ci")
+    _ = run_in(project, "just", "ci")
 
 
 def test_precommit_config_valid(render: RenderFn, tmp_path: Path) -> None:
     project = render(MINIMAL, tmp_path / "out")
-    run_in(project, "uv", "run", "pre-commit", "validate-config", ".pre-commit-config.yaml")
+    _ = run_in(project, "uv", "run", "pre-commit", "validate-config", ".pre-commit-config.yaml")
     text = (project / ".pre-commit-config.yaml").read_text()
     assert "forbid-rej" in text
     assert "--assume-in-merge" in text
     # Stage the rendered tree first: pre-commit `run --all-files` operates on
     # `git ls-files`, and the copy-only _tasks `git init` but never `git add`, so
     # without this the hooks would inspect zero files and pass vacuously.
-    run_in(project, "git", "add", "-A")
-    run_in(project, "uv", "run", "pre-commit", "run", "--all-files")
+    _ = run_in(project, "git", "add", "-A")
+    _ = run_in(project, "uv", "run", "pre-commit", "run", "--all-files")
 
 
 def test_precommit_install_task_runs(template_root: Path, tmp_path: Path) -> None:
@@ -153,7 +153,7 @@ def test_precommit_install_task_runs(template_root: Path, tmp_path: Path) -> Non
     import copier
 
     dst = tmp_path / "installed"
-    copier.run_copy(
+    _ = copier.run_copy(
         str(template_root),
         str(dst),
         data={**MINIMAL, "enable_precommit_install": True},
@@ -169,7 +169,7 @@ def test_precommit_install_task_runs(template_root: Path, tmp_path: Path) -> Non
 def test_property_layer(render: RenderFn, tmp_path: Path) -> None:
     on = render({**MINIMAL, "enable_property_tests": True}, tmp_path / "on")
     assert (on / "tests" / "property" / "test_example_property.py").is_file()
-    run_in(on, "just", "fuzz")
+    _ = run_in(on, "just", "fuzz")
     off = render(MINIMAL, tmp_path / "off")
     assert not (off / "tests" / "property").exists()
 
@@ -177,7 +177,7 @@ def test_property_layer(render: RenderFn, tmp_path: Path) -> None:
 def test_property_marker_enforced(render: RenderFn, tmp_path: Path) -> None:
     """An unmarked test under tests/property/ fails collection, not silently no-ops."""
     project = render({**MINIMAL, "enable_property_tests": True}, tmp_path / "out")
-    (project / "tests" / "property" / "test_unmarked.py").write_text(
+    _ = (project / "tests" / "property" / "test_unmarked.py").write_text(
         "def test_forgot_the_marker() -> None:\n    assert True\n"
     )
     result = run_in(project, "just", "fuzz", check=False)
@@ -190,7 +190,7 @@ def test_policy_layer(render: RenderFn, tmp_path: Path) -> None:
     assert (on / "tests" / "policy" / "test_gates.py").is_file()
     # --no-cov: policy tests import no package code; the global --cov + fail_under
     # in addopts would otherwise fail the run at 0% coverage (mirrors `just policy`).
-    run_in(on, "uv", "run", "pytest", "--no-cov", "tests/policy")
+    _ = run_in(on, "uv", "run", "pytest", "--no-cov", "tests/policy")
     off = render(MINIMAL, tmp_path / "off")
     assert not (off / "tests" / "policy").exists()
 
@@ -265,7 +265,7 @@ def test_scan_recipe_blocks_violations(render: RenderFn, tmp_path: Path) -> None
     gitleaks binary — it proves the recipe is wired, not merely present.
     """
     project = render({**MINIMAL, "enable_scanners": True}, tmp_path / "out")
-    (project / "src" / "demo_project" / "danger.py").write_text(
+    _ = (project / "src" / "demo_project" / "danger.py").write_text(
         "def run(expr: str) -> object:\n    return eval(expr)\n"
     )
     result = run_in(project, "just", "scan", check=False)
@@ -364,7 +364,7 @@ def test_ci_gitleaks_scans_history(render: RenderFn, tmp_path: Path) -> None:
 def test_sha_pin_policy(render: RenderFn, tmp_path: Path) -> None:
     full = {**MINIMAL, "enable_policy_tests": True, "enable_sha_pin_policy": True}
     project = render(full, tmp_path / "out")
-    run_in(project, "uv", "run", "pytest", "--no-cov", "tests/policy")
+    _ = run_in(project, "uv", "run", "pytest", "--no-cov", "tests/policy")
     assert "test_actions_are_sha_pinned" in (project / "tests" / "policy" / "test_gates.py").read_text()
 
 
@@ -420,7 +420,7 @@ def test_apache_license_renders(render: RenderFn, tmp_path: Path) -> None:
 
 def test_library_builds(render: RenderFn, tmp_path: Path) -> None:
     project = render({**MINIMAL, "project_type": "library"}, tmp_path / "lib")
-    run_in(project, "uv", "build")
+    _ = run_in(project, "uv", "build")
     assert list((project / "dist").glob("*.whl"))
     # No stray entry-point file in a library render.
     pkg = project / "src" / "demo_project"
@@ -433,7 +433,7 @@ def test_application_runs(render: RenderFn, tmp_path: Path) -> None:
     assert "package = false" in pyproject
     assert "pythonpath" in pyproject
     assert "[project.scripts]" not in pyproject  # import-only fork
-    run_in(project, "just", "ci")
+    _ = run_in(project, "just", "ci")
     # The entry point runs via `python -m` with src on the path: `package = false`
     # leaves src/ uninstalled and pytest's `pythonpath` is pytest-only, so a bare
     # `python -m` raises ModuleNotFoundError — `env PYTHONPATH=src` is required.
@@ -459,7 +459,7 @@ def test_all_toggles_on_passes_full_gate(render: RenderFn, tmp_path: Path) -> No
     project = render(full, tmp_path / "out")
 
     # Stage everything so the generated project's own pre-commit sees every rendered file.
-    run_in(project, "git", "add", "-A")
+    _ = run_in(project, "git", "add", "-A")
     precommit = run_in(project, "uv", "run", "pre-commit", "run", "--all-files", check=False)
     assert precommit.returncode == 0, (
         f"pre-commit failed on the all-toggles-ON render:\n{precommit.stdout}\n{precommit.stderr}"
@@ -479,7 +479,7 @@ def test_curated_ruleset(render: RenderFn, tmp_path: Path) -> None:
     # The pydocstyle convention only takes effect when the D rules are selected (the
     # `all` ruleset); curated omits D, so the block must not render as dead config.
     assert "[tool.ruff.lint.pydocstyle]" not in pyproject
-    run_in(project, "uv", "run", "ruff", "check", ".")
+    _ = run_in(project, "uv", "run", "ruff", "check", ".")
     # ...and it IS present on the `all` path, where the D rules are active.
     allp = render(MINIMAL, tmp_path / "all")
     assert "[tool.ruff.lint.pydocstyle]" in (allp / "pyproject.toml").read_text()
@@ -503,7 +503,7 @@ def test_coverage_floor_out_of_range_is_rejected(render: RenderFn, tmp_path: Pat
     so an out-of-range floor raises before any project is written.
     """
     with pytest.raises(ValueError, match="coverage_floor"):
-        render({**MINIMAL, "coverage_floor": floor}, tmp_path / str(floor))
+        _ = render({**MINIMAL, "coverage_floor": floor}, tmp_path / str(floor))
 
 
 @pytest.mark.parametrize("floor", [70, 95])
@@ -572,13 +572,13 @@ def test_license_rendering(render: RenderFn, tmp_path: Path) -> None:
 def test_full_combo_gate_green(render: RenderFn, tmp_path: Path) -> None:
     """The gold-standard check: a fully-loaded project is green on `just ci`."""
     project = render(FULL, tmp_path / "full")
-    run_in(project, "just", "ci")
+    _ = run_in(project, "just", "ci")
 
 
 @pytest.mark.parametrize("name", list(MATRIX))
 def test_matrix(render: RenderFn, tmp_path: Path, name: str) -> None:
     project = render(MATRIX[name], tmp_path / name)
     # Fast subset for every combo; the full `just ci` is exercised by test_full_combo_gate_green.
-    run_in(project, "just", "fmt-check")
-    run_in(project, "just", "lint")
-    run_in(project, "just", "typecheck")
+    _ = run_in(project, "just", "fmt-check")
+    _ = run_in(project, "just", "lint")
+    _ = run_in(project, "just", "typecheck")
