@@ -90,16 +90,20 @@ split them into **5 clusters** and *overturned* an initial "all mechanical" read
   behavior-under-test is "it did not raise") or runs purely for a filesystem side
   effect, and no flagged site reads the return. Both votes `all-mechanical`, high
   confidence, zero net-new findings.
-- **C4–C5 (7 × `reportAny`) — NOT mechanical (`needs-attention`).** The obvious
-  fixes *backfire* under `recommended`: `dict[str, object]` trades `reportAny` for
-  `reportIndexIssue`/`reportOperatorIssue` at every subscript, and even
-  `cast("dict[str, Any]", …)` trips `reportExplicitAny` (a `recommended` rule
-  *outside* the 38). The verified fix needs precise `TypedDict`s + targeted `cast`s
-  (Subdivision 4b). A real latent fragility surfaced as a by-product:
-  `test_generation.py:344` subscripts `run_step["env"]` unchecked, and that block
-  renders only under `enable_property_tests` — the recipe *preserves* current
-  behavior (declares `env` required, leaves L344 untouched) and **flags it for
-  human review** rather than silently changing semantics.
+- **C4–C5 (7 × `reportAny`) — NOT mechanical (`needs-attention`).** A *uniform*
+  fix backfires under `recommended`: a blanket `dict[str, object]` on the
+  nested-descent sites (`cfg["extends"]`, `ci["jobs"]["ci"]["steps"]`) trips
+  `reportIndexIssue`/`reportOperatorIssue`, and `cast("dict[str, Any]", …)` trips
+  `reportExplicitAny` (a `recommended` rule *outside* the 38). The fix is
+  per-site *truthful* types (Subdivision 4b): `dict[str, object]` where the test
+  only does membership/equality (`answers`), precise `TypedDict`s where it descends
+  into structure (`cfg`, `ci`), and `NotRequired` keys where the real data is
+  heterogeneous (workflow `steps`). A real latent fragility surfaced as a
+  by-product — `test_generation.py:344` subscripts `run_step["env"]` unchecked, and
+  that block renders only under `enable_property_tests` — and the honest recipe
+  **resolves** it with an explicit `assert "env" in run_step` (a checked
+  precondition), rather than the dishonest alternative of declaring `env` required
+  to make the subscript quietly type-check.
 
 **Empirically confirmed (count oracle).** Applying the full C1–C5 recipe to an
 isolated copy of the committed tree drove basedpyright `recommended` from **310 →
@@ -153,6 +157,9 @@ mirroring the shipped shape.
 ```toml
 [tool.basedpyright]
 typeCheckingMode = "recommended"   # basedpyright's default; matches what we ship
+failOnWarnings = true              # DECLARE the gate's teeth (recommended defaults it
+                                   # true, but make it explicit so a future mode/version
+                                   # drift under the <1.40 cap can't silently un-fail it)
 pythonVersion = "3.11"             # the requires-python floor
 include = ["tests"]                # the only Python surface; there is no src/
 exclude = ["template", "**/__pycache__", "**/.venv"]  # template/ is Jinja, never Python
@@ -207,49 +214,62 @@ tracks every rule basedpyright adds.
     `reportUnusedVariable`; no behavior change.
   - **4b — `reportAny` ×7 (clusters C4–C5, `needs-attention`):** in
     `test_generation.py`, add the typing import + precise `TypedDict`s and `cast`
-    at each parse boundary (verified recipe below). Sites: 61 (`answers`), 278
-    (`cfg`), 342 + 343×3 (`ci`/`run_step`/`s`/`s.get`), 544 (`v` from `re.findall`).
-    Carry the L344 unchecked-subscript flag for reviewer awareness; do **not**
-    rewrite it to `.get("env", {})` (that silently changes the test's semantics).
+    at each parse boundary (verified honest recipe below). Sites: 61 (`answers`),
+    278 (`cfg`), 342 + 343×3 (`ci`/`run_step`/`s`/`s.get`), 544 (`v` from
+    `re.findall`). The recipe models the data *truthfully* (no over-claimed keys or
+    value types) and **resolves** the L344 unchecked subscript with an explicit
+    `assert "env" in run_step` — turning the latent KeyError into a checked
+    precondition. Do **not** rewrite L344 to `.get("env", {})` (that silently
+    changes the test's semantics).
 
-**Parse-typing recipe (verified; shared by A#2 and B#4b).** The fix is *precise
-types*, not a blanket `cast` to `Any`/`object`. In `test_generation.py`:
+**Parse-typing recipe (verified honest; shared by A#2 and B#4b).** The types must
+model the *real* data — not a blanket `cast` to `Any`/`object`, and not an
+over-claim that silences a finding by asserting a falsehood. In
+`test_generation.py`:
 
 ```python
-from typing import TypedDict, cast
+from typing import NotRequired, TypedDict, cast
 
 class _Step(TypedDict):
-    run: str
-    env: dict[str, str]      # both keys REQUIRED: total=False trips
-                             # reportTypedDictNotRequiredAccess on run_step["env"]
-
+    run: NotRequired[str]            # workflow steps are heterogeneous: `uses:` steps
+    env: NotRequired[dict[str, str]] # (checkout/setup-uv) carry neither key
 class _CiJob(TypedDict):
     steps: list[_Step]
-
 class _CiWorkflow(TypedDict):
     jobs: dict[str, _CiJob]
 
-# `pre-commit` is hyphenated → functional form is mandatory (class syntax can't):
+# `pre-commit` is hyphenated → functional form is mandatory (class syntax can't).
+# These keys ARE required: cfg is a single object the test itself generates and asserts.
 _PreCommit = TypedDict("_PreCommit", {"enabled": bool})
 _Renovate = TypedDict("_Renovate", {"extends": list[str], "pre-commit": _PreCommit})
 ```
 
-then `cast` at the three boundaries (+ the `re.findall` element):
+then `cast` at the boundaries, and make the `env` precondition explicit:
 
 ```python
-answers = cast("dict[str, str]", yaml.safe_load(...))   # L61
-cfg     = cast("_Renovate",      json.loads(...))        # L278
-ci      = cast("_CiWorkflow",    yaml.safe_load(...))    # L342 — narrows L343's whole chain
-... for v in cast("list[str]", re.findall(r"\d+\.\d+\.\d+", line))   # L544
+answers = cast("dict[str, object]", yaml.safe_load(...))  # L61 — values are mixed
+                                                          #       str/int/bool, not all str
+cfg     = cast("_Renovate",   json.loads(...))            # L278
+ci      = cast("_CiWorkflow", yaml.safe_load(...))        # L342 — narrows L343's chain
+run_step = next(s for s in ci["jobs"]["ci"]["steps"] if s.get("run") == "just ci")
+assert "env" in run_step                                  # L344 was an UNCHECKED subscript;
+assert run_step["env"]["HYPOTHESIS_PROFILE"] == "ci"      #       this surfaces the contract
+... for v in cast("list[str]", re.findall(r"\d+\.\d+\.\d+", line))   # L544 (group-less → list[str])
 ```
 
-**No `# type: ignore`.** Casting *from* `Any` never trips `reportUnnecessaryCast`;
-the string-literal cast targets resolve under the file's existing
-`from __future__ import annotations`. Rejected (empirically worse under
-`recommended`): `dict[str, Any]` → `reportExplicitAny`; `dict[str, object]` →
-`reportIndexIssue`; `total=False` → `reportTypedDictNotRequiredAccess`. The
-template's single generated `reportAny` (A#2) takes the same precise-`cast` shape,
-verified against the same oracle at implementation.
+**No `# type: ignore`, and no type that lies.** Casting *from* `Any` never trips
+`reportUnnecessaryCast`; the string-literal cast targets resolve under the file's
+existing `from __future__ import annotations`. `NotRequired` `run`/`env` reflects
+that most steps lack them, and the explicit `assert "env" in run_step` is what
+narrows the `NotRequired` key so `reportTypedDictNotRequiredAccess` is satisfied
+*honestly* (by a checked precondition) rather than suppressed by a false
+required-key claim. **Empirically confirmed:** this honest recipe reaches the
+identical **310 → 272** with **zero new rule names** — modeling reality costs
+nothing here. (Rejected as dishonest *and* unnecessary: `dict[str, str]` for
+`answers` over-narrows mixed values; required `_Step.env` asserts a key real steps
+lack purely to dodge the diagnostic that guards L344.) The template's single
+generated `reportAny` (A#2) takes the same honest-`cast` shape — audit it against
+the actual rendered value, not an assumed one.
 
 **Recipe — `justfile`:**
 
@@ -315,19 +335,50 @@ copier-attributable `Unknown` ⇒ `py.typed` containment holds).
 
 ## Risks / tradeoffs
 
-- **`reportAny` was the non-mechanical risk — now retired.** The naive fixes
-  backfire (`reportExplicitAny`/`reportIndexIssue`/`reportTypedDictNotRequiredAccess`),
-  so the recipe uses precise `TypedDict`s + `cast`; it is **empirically verified**
-  (310 → 272, zero new rule names) rather than assumed. The one residual is the
-  flagged `test_generation.py:344` unchecked subscript, left behavior-preserving
-  for human review (a latent KeyError if the conditional `env:` block is ever
-  dropped — not introduced by this change).
+- **`reportAny` was the non-mechanical risk — now retired honestly.** The naive
+  fixes backfire (`reportExplicitAny`/`reportIndexIssue`/
+  `reportTypedDictNotRequiredAccess`), so the recipe uses per-site *truthful*
+  `TypedDict`s + `cast`; **empirically verified** (310 → 272, zero new rule names),
+  not assumed. The L344 unchecked subscript is **resolved** (explicit `assert "env"
+  in run_step`), not deferred — see the integrity-audit note below.
 - **`RenderFn` precision is load-bearing** (Subdivision 1).
 - **Upgrade churn** — `recommended` tracks *every* basedpyright rule, so a minor
   bump is likelier to redden the tree; the `<1.40` cap contains it (bump
   deliberately).
 - **39 + 31 mechanical edits** must be exact; the per-step count drop makes any
   miss immediately visible.
+
+## Integrity audit — does this game the checker?
+
+The bar: reach zero by *fixing* type safety, never by silencing it. The recipe was
+adversarially audited against a four-part "gaming" taxonomy — **suppression**
+(`# type: ignore`/rule-disable/mode-lowering/surface-narrowing), **dishonest types**
+(a `cast`/`TypedDict` asserting what the data doesn't guarantee), **test-weakening**
+(`_ =` hiding a result that should be asserted), and **gate dishonesty** (config/CI
+that only looks enforced) — by an independent read-only review panel *and* an
+empirical count oracle.
+
+**Verdict: honest, with three small fixes (folded in above).** The bulk is the
+*opposite* of gaming: it clears findings by **supplying true type information the
+checker was missing** (`RenderFn` is `_render`'s exact signature; `template_root` is
+genuinely a `Path`) and by making **already-unused** returns explicit (`_ =`, where
+`check=True` already raises on failure — verified that every result-asserting site
+is captured into a name and excluded). No `# type: ignore`, no rule downgrade, no
+mode lowering (`strict → recommended` is a *raise*); `exclude` drops only Jinja/cache
+paths (**zero** `.py` files) and the gate runs the full `tests/` surface. The three
+corrected spots, each a place the first recipe asserted a convenient falsehood:
+
+| spot | was (mild gaming) | now (honest) |
+|---|---|---|
+| `answers` value type | `cast("dict[str, str]")` — false (`coverage_floor` int, `enable_*` bool) | `cast("dict[str, object]")` |
+| `_Step.run`/`env` | **required** — false (`uses:` steps lack both) → silenced the rule guarding L344 | `NotRequired` + explicit `assert "env" in run_step` |
+| `failOnWarnings` | inherited from the `recommended` default | declared `= true` |
+
+Modeling reality **cost nothing**: the honest recipe reaches the *identical*
+**310 → 272, zero new rule names**, and the `_Step` fix turns the latent L344
+KeyError into a checked precondition rather than papering over it. Both the triage
+and the audit were reproduced by the count oracle on an isolated copy of the
+committed tree.
 
 ## Sequence
 
