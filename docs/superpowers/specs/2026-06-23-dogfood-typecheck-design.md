@@ -389,8 +389,8 @@ copier-attributable `Unknown` ⇒ `py.typed` containment holds).
 - **Upgrade churn** — `recommended` tracks *every* basedpyright rule, so a minor
   bump is likelier to redden the tree; the `<1.40` cap contains it (bump
   deliberately).
-- **39 + 31 mechanical edits** must be exact; the per-step count drop makes any
-  miss immediately visible.
+- **39 annotation + 36 discard-prefix edits** must be exact; the per-step count
+  drop makes any miss immediately visible.
 
 ## Integrity audit — does this game the checker?
 
@@ -426,6 +426,6 @@ committed tree.
 
 ## Sequence
 
-Workstream A (template bar) → Workstream B config + dev-dep → Subdivisions 1→2→3→4
-(watching 310 → 310 → 41 → 38 → 0) → recipe → CI job → AGENTS.md. The detailed,
-commit-by-commit plan is produced next by `writing-plans`.
+Workstream B (config + dev-dep) → Subdivisions 1–3 → 4a → 4b
+(watching 310 → 43 → 7 → 0) → recipe → CI job → AGENTS.md → Workstream A (template
+bar). The detailed, commit-by-commit plan is produced next by `writing-plans`.
