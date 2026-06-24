@@ -10,3 +10,7 @@ test:
 # Lint this repo's own tooling
 lint:
     uv run ruff check .
+
+# Type-check this repo's own tooling (the tests/ harness) under basedpyright recommended.
+typecheck:
+    uv run basedpyright

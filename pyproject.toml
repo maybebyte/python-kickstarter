@@ -12,6 +12,7 @@ dev = [
     "copier>=9.6,<10",
     "pytest>=8",
     "pyyaml>=6",
+    "basedpyright>=1.39,<1.40",
 ]
 
 [tool.pytest.ini_options]
@@ -19,3 +20,13 @@ minversion = "8.0"
 testpaths = ["tests"]
 pythonpath = ["."]
 addopts = ["-q", "--strict-markers", "--strict-config", "--import-mode=importlib"]
+
+[tool.basedpyright]
+typeCheckingMode = "recommended"   # basedpyright's default; matches what the template ships
+failOnWarnings = true              # declare the gate's teeth explicitly (recommended defaults
+                                   # it true, but pin it so a future mode/version drift under
+                                   # the <1.40 cap cannot silently un-fail the build)
+pythonVersion = "3.11"             # the requires-python floor
+include = ["tests"]                # the only Python surface; there is no src/
+exclude = ["template", "**/__pycache__", "**/.venv"]  # template/ is Jinja, never Python
+reportMissingImports = "error"
