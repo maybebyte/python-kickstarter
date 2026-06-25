@@ -91,6 +91,7 @@ license:
   choices:
     - MIT
     - Apache-2.0
+    - ISC
     - proprietary
 
 python_version:

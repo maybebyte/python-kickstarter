@@ -640,11 +640,15 @@ def test_license_rendering(render: RenderFn, tmp_path: Path) -> None:
     assert "WITHOUT WARRANTY OF ANY KIND" in mit_text  # full body, not truncated
     apache = render({**MINIMAL, "license": "Apache-2.0"}, tmp_path / "apache")
     assert "Licensed under the Apache License" in (apache / "LICENSE").read_text()
+    isc = render({**MINIMAL, "license": "ISC"}, tmp_path / "isc")
+    isc_text = (isc / "LICENSE").read_text()
+    assert "Permission to use, copy, modify, and distribute this software" in isc_text
+    assert 'license = "ISC"' in (isc / "pyproject.toml").read_text()
     prop = render({**MINIMAL, "license": "proprietary"}, tmp_path / "prop")
     assert "All rights reserved" in (prop / "LICENSE").read_text()
     assert "license =" not in (prop / "pyproject.toml").read_text()
     # No ellipsis placeholder ever ships in a rendered LICENSE.
-    for variant in (mit, apache, prop):
+    for variant in (mit, apache, isc, prop):
         assert "\n...\n" not in (variant / "LICENSE").read_text()
 
 
