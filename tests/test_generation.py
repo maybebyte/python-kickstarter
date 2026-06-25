@@ -75,6 +75,7 @@ MATRIX = {
     "minimal": MINIMAL,
     "full": FULL,
     "app": {**MINIMAL, "project_type": "application"},
+    "app-full": {**FULL, "project_type": "application"},
     "curated": {**MINIMAL, "ruff_ruleset": "curated"},
 }
 
@@ -85,6 +86,14 @@ def test_minimal_renders(render: RenderFn, tmp_path: Path) -> None:
     # Package laid out under src/, py.typed shipped.
     assert (project / "src" / "demo_project" / "__init__.py").is_file()
     assert (project / "src" / "demo_project" / "py.typed").is_file()
+
+    # Always-present support files render (AGENTS.md NEVER: no template file without an assertion).
+    assert (project / ".editorconfig").is_file()
+    assert "indent_" in (project / ".editorconfig").read_text()
+    gitignore = (project / ".gitignore").read_text()
+    assert "coverage.xml" in gitignore
+    assert "requirements-audit.txt" in gitignore
+    assert (project / "tests" / "conftest.py").is_file()
 
     # _tasks ran (copy-only): uv produced a lockfile.
     assert (project / "uv.lock").is_file()
@@ -291,6 +300,7 @@ def test_scanner_layer(render: RenderFn, tmp_path: Path) -> None:
     assert "scan:" in (on / "justfile").read_text()
     off = render(MINIMAL, tmp_path / "off")
     assert not (off / ".gitleaks.toml").exists()
+    assert not (off / ".semgrep.yml").exists()
 
 
 def test_semgrep_runs_hermetically(render: RenderFn, tmp_path: Path) -> None:
@@ -393,6 +403,8 @@ def test_ci_workflows(render: RenderFn, tmp_path: Path) -> None:
     assert "concurrency:" in (project / ".github" / "workflows" / "mutation.yml").read_text()
     bare = render(MINIMAL, tmp_path / "bare")
     assert not (bare / ".github" / "workflows" / "scan.yml").exists()
+    # mutation.yml is gated solely by the empty-name idiom; assert it too (symmetry with scan.yml).
+    assert not (bare / ".github" / "workflows" / "mutation.yml").exists()
 
 
 def test_ci_fuzz_uses_ci_profile(render: RenderFn, tmp_path: Path) -> None:
@@ -497,6 +509,8 @@ def test_library_builds(render: RenderFn, tmp_path: Path) -> None:
     # No stray entry-point file in a library render.
     pkg = project / "src" / "demo_project"
     assert not (pkg / "__main__.py").exists()
+    # A library render must not ship the application-only entry-point test either.
+    assert not (project / "tests" / "unit" / "test_main.py").exists()
 
 
 def test_application_runs(render: RenderFn, tmp_path: Path) -> None:
@@ -652,9 +666,14 @@ def test_license_rendering(render: RenderFn, tmp_path: Path) -> None:
         assert "\n...\n" not in (variant / "LICENSE").read_text()
 
 
-def test_full_combo_gate_green(render: RenderFn, tmp_path: Path) -> None:
-    """The gold-standard check: a fully-loaded project is green on `just ci`."""
-    project = render(FULL, tmp_path / "full")
+@pytest.mark.parametrize("project_type", ["library", "application"])
+def test_full_combo_gate_green(render: RenderFn, tmp_path: Path, project_type: str) -> None:
+    """The gold-standard check: a fully-loaded project is green on `just ci` (both types).
+
+    Parametrizing project_type closes the matrix gap where application + every guardrail layer
+    was never exercised through a full `just ci` (FULL hardcoded library).
+    """
+    project = render({**FULL, "project_type": project_type}, tmp_path / project_type)
     _ = run_in(project, "just", "ci")
 
 
