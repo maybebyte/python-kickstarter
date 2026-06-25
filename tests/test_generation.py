@@ -350,8 +350,29 @@ def test_audit_layer(render: RenderFn, tmp_path: Path) -> None:
     result = run_in(on, "just", "audit")
     # Prove pip-audit actually executed (not a vacuous exit-0 on empty input).
     assert "vulnerab" in (result.stdout + result.stderr).lower()
+    # The toggle also gates a pip-audit step in scan.yml (which exists here because
+    # enable_dependency_audit is in the file's name condition); prove it's present.
+    assert "pip-audit" in (on / ".github" / "workflows" / "scan.yml").read_text()
     off = render(MINIMAL, tmp_path / "off")
     assert "audit:" not in (off / "justfile").read_text()
+
+
+def test_pip_audit_step_absent_when_dependency_audit_off(render: RenderFn, tmp_path: Path) -> None:
+    """Only this generation assertion guards the gated pip-audit CI step.
+
+    Like the zizmor step, the pip-audit step in scan.yml is gated solely on its toggle
+    (enable_dependency_audit) and is absent from the local `just`/`just ci` recipes' surface,
+    so only this assertion guards it — dropping or inverting the guard would silently delete
+    the CI dependency audit with no other test failing. Render scan.yml via another layer so
+    the file exists, then prove the pip-audit step is gone when the toggle is off.
+    """
+    off = render(
+        {**MINIMAL, "enable_dependency_audit": False, "enable_scanners": True},
+        tmp_path / "off",
+    )
+    scan = (off / ".github" / "workflows" / "scan.yml").read_text()
+    assert "semgrep" in scan  # scan.yml really rendered (scanners on), not empty/missing
+    assert "pip-audit" not in scan
 
 
 def test_scanner_layer(render: RenderFn, tmp_path: Path) -> None:
