@@ -114,6 +114,17 @@ def test_minimal_renders(render: RenderFn, tmp_path: Path) -> None:
     assert not (project / "{{ _copier_conf.answers_file }}.jinja").exists()
 
 
+def test_readme_renders(render: RenderFn, tmp_path: Path) -> None:
+    """README interpolates project_name/description; the Run block is gated on project_type."""
+    app = render({**MINIMAL, "project_type": "application"}, tmp_path / "app")
+    readme = (app / "README.md").read_text()
+    assert "# Demo Project" in readme  # project_name header
+    assert "A demo." in readme  # description
+    assert "## Run" in readme  # application-only block present
+    lib = render(MINIMAL, tmp_path / "lib")
+    assert "## Run" not in (lib / "README.md").read_text()  # absent for a library render
+
+
 @pytest.mark.parametrize("project_type", ["library", "application"])
 def test_free_text_answers_are_toml_and_python_safe(
     render: RenderFn, tmp_path: Path, project_type: str
@@ -577,6 +588,8 @@ def test_library_builds(render: RenderFn, tmp_path: Path) -> None:
 
 def test_application_runs(render: RenderFn, tmp_path: Path) -> None:
     project = render({**MINIMAL, "project_type": "application"}, tmp_path / "app")
+    # Application-only entry-point test ships (the library render asserts its absence).
+    assert (project / "tests" / "unit" / "test_main.py").is_file()
     pyproject = (project / "pyproject.toml").read_text()
     assert "package = false" in pyproject
     assert "pythonpath" in pyproject
@@ -633,6 +646,9 @@ def test_curated_ruleset(render: RenderFn, tmp_path: Path) -> None:
     # `all` ruleset); curated omits D, so the block must not render as dead config.
     assert "[tool.ruff.lint.pydocstyle]" not in pyproject
     _ = run_in(project, "uv", "run", "ruff", "check", ".")
+    # curated is the only MATRIX combo not otherwise run through a full `just ci`
+    # (test_matrix runs only the fast subset); close that gap on the rendered project here.
+    _ = run_in(project, "just", "ci")
     # ...and it IS present on the `all` path, where the D rules are active.
     allp = render(MINIMAL, tmp_path / "all")
     assert "[tool.ruff.lint.pydocstyle]" in (allp / "pyproject.toml").read_text()
@@ -752,7 +768,8 @@ def test_full_combo_gate_green(render: RenderFn, tmp_path: Path, project_type: s
 @pytest.mark.parametrize("name", list(MATRIX))
 def test_matrix(render: RenderFn, tmp_path: Path, name: str) -> None:
     project = render(MATRIX[name], tmp_path / name)
-    # Fast subset for every combo; the full `just ci` is exercised by test_full_combo_gate_green.
+    # Fast subset for every combo; the full `just ci` is exercised by test_full_combo_gate_green
+    # (minimal/full/app/app-full) and by test_curated_ruleset (curated).
     _ = run_in(project, "just", "fmt-check")
     _ = run_in(project, "just", "lint")
     _ = run_in(project, "just", "typecheck")
