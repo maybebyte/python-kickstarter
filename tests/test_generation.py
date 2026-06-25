@@ -174,6 +174,35 @@ def test_project_name_rejects_empty(render: RenderFn, tmp_path: Path, name: str)
         _ = render({**MINIMAL, "project_name": name}, tmp_path / "out")
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("project_name", "line1\nline2"),
+        ("package_name", "demo_project\n"),
+        ("author_name", "line1\nline2"),
+        ("author_email", "line1\nline2"),
+        ("description", "line1\nline2"),
+    ],
+)
+def test_control_chars_in_free_text_rejected(
+    render: RenderFn, tmp_path: Path, field: str, value: str
+) -> None:
+    """Every free-text answer rejects C0 control characters at answer time.
+
+    A control char is unreachable via copier's single-line prompt, but a multi-line scalar in
+    a --data/answers file would slip one in. In single-line TOML (description/author_*) or a
+    package dir/name (package_name) it renders invalid output and aborts the copy-time
+    `uv lock`; in project_name it yields a malformed header/docstring. The constrained fields
+    (license/python_version/project_type/ruff_ruleset choices, coverage_floor int, enable_*
+    bools) can't carry one, so the five free-text fields are the complete set. package_name
+    needs a *valid slug + trailing newline*: Python's `$` matches before a final newline, so
+    the shape regex alone accepts a valid slug with a trailing newline — the control-char
+    guard is what rejects it.
+    """
+    with pytest.raises(ValueError, match=field):
+        _ = render({**MINIMAL, field: value}, tmp_path / "out")
+
+
 def test_minimal_lints_clean(render: RenderFn, tmp_path: Path) -> None:
     project = render(MINIMAL, tmp_path / "out")
     _ = run_in(project, "uv", "run", "ruff", "check", ".")
