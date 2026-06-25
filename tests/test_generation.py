@@ -131,10 +131,10 @@ def test_free_text_answers_are_toml_and_python_safe(
 ) -> None:
     """A double-quote or backslash in free text must not abort generation or break Python.
 
-    description/author_* reach double-quoted TOML; project_name/description reach module
-    docstrings (core.py, __main__.py, conftest.py, __init__.py). Unescaped, a quote breaks
-    the TOML and aborts the copy-only `uv lock`; a backslash or triple-quote breaks Python
-    (W605 / E999) and fails the generated `just ci`. Values are escaped, not rejected.
+    description/author_* reach double-quoted TOML; project_name reaches module docstrings
+    (core.py, __main__.py, conftest.py, __init__.py). Unescaped, a quote breaks the TOML and
+    aborts the copy-only `uv lock`; a backslash or triple-quote breaks Python (W605 / E999)
+    and fails the generated `just ci`. Values are escaped, not rejected.
     """
     data = {
         **MINIMAL,
@@ -218,6 +218,17 @@ def test_minimal_lints_clean(render: RenderFn, tmp_path: Path) -> None:
     project = render(MINIMAL, tmp_path / "out")
     _ = run_in(project, "uv", "run", "ruff", "check", ".")
     _ = run_in(project, "uv", "run", "ruff", "format", "--check", ".")
+
+
+def test_punctuationless_description_lints_clean(render: RenderFn, tmp_path: Path) -> None:
+    """A description without terminal punctuation must not redden the generated lint gate.
+
+    Under ruff_ruleset=all (google pydocstyle), a docstring ending in the raw description
+    would trip D415; only project_name (followed by a literal period) reaches docstrings now,
+    so any description renders clean. Guards the "green from the first commit" promise.
+    """
+    project = render({**MINIMAL, "description": "A fast async task queue"}, tmp_path / "out")
+    _ = run_in(project, "uv", "run", "ruff", "check", ".")
 
 
 def test_minimal_typechecks(render: RenderFn, tmp_path: Path) -> None:
