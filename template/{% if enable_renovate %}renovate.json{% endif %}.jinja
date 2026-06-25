@@ -2,5 +2,13 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
   "lockFileMaintenance": { "enabled": true, "schedule": ["before 4am on monday"] },
-  "pre-commit": { "enabled": true }
+  "pre-commit": { "enabled": true },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/(^|/)justfile$/", "/\\.ya?ml$/"],
+      "matchStrings": ["uvx (?<depName>semgrep|zizmor|pip-audit)@(?<currentValue>\\d+\\.\\d+\\.\\d+)"],
+      "datasourceTemplate": "pypi"
+    }
+  ]
 }
