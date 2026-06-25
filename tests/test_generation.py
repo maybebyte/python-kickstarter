@@ -105,23 +105,41 @@ def test_minimal_renders(render: RenderFn, tmp_path: Path) -> None:
     assert not (project / "{{ _copier_conf.answers_file }}.jinja").exists()
 
 
-def test_free_text_answers_are_toml_and_python_safe(render: RenderFn, tmp_path: Path) -> None:
-    """A double-quote (or backslash) in free-text answers must not abort generation.
+@pytest.mark.parametrize("project_type", ["library", "application"])
+def test_free_text_answers_are_toml_and_python_safe(
+    render: RenderFn, tmp_path: Path, project_type: str
+) -> None:
+    """A double-quote or backslash in free text must not abort generation or break Python.
 
-    description/author_name/author_email are interpolated into double-quoted TOML and the
-    module docstring; unescaped, a `"` makes invalid TOML and the copy-only `uv lock` _task
-    aborts the whole render. The values are escaped (not rejected), so prose quotes survive.
+    description/author_* reach double-quoted TOML; project_name/description reach module
+    docstrings (core.py, __main__.py, conftest.py, __init__.py). Unescaped, a quote breaks
+    the TOML and aborts the copy-only `uv lock`; a backslash or triple-quote breaks Python
+    (W605 / E999) and fails the generated `just ci`. Values are escaped, not rejected.
     """
-    data = {**MINIMAL, "description": 'They said "hi"', "author_name": 'O"Brien'}
+    data = {
+        **MINIMAL,
+        "project_type": project_type,
+        "project_name": 'Back\\slash "Q" Tool',
+        "description": 'They said "hi" \\ ok',
+        "author_name": 'O"Brien',
+    }
     # render runs the copy-only `uv lock`/`uv sync`; broken TOML would raise here.
-    project = render(data, tmp_path / "out")
+    project = render(data, tmp_path / project_type)
 
     parsed = tomllib.loads((project / "pyproject.toml").read_text())
-    assert parsed["project"]["description"] == 'They said "hi"'
+    assert parsed["project"]["description"] == 'They said "hi" \\ ok'
     assert parsed["project"]["authors"][0]["name"] == 'O"Brien'
 
-    # The same values reach the module docstring; it must stay importable Python.
-    assert run_in(project, "uv", "run", "python", "-c", "import demo_project").returncode == 0
+    # Every rendered .py stays escape-clean (no W605) and parseable (no E999); the raw
+    # interpolation bug would trip one of those. --select isolates it from unrelated rules.
+    _ = run_in(project, "uv", "run", "ruff", "check", "--select", "W605", ".")
+    # ...and the package still imports (catches a hard SyntaxError from an unterminated docstring).
+    assert (
+        run_in(
+            project, "env", "PYTHONPATH=src", "uv", "run", "python", "-c", "import demo_project"
+        ).returncode
+        == 0
+    )
 
 
 @pytest.mark.parametrize("name", ["class", "import", "for", "as"])

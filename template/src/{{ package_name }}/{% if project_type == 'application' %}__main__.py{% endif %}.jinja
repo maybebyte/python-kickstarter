@@ -1,4 +1,4 @@
-"""Entry point for {{ project_name }}."""
+"""Entry point for {{ project_name | replace('\\', '\\\\') | replace('"', '\\"') }}."""
 
 from {{ package_name }} import clamp
 

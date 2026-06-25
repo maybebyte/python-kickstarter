@@ -1,4 +1,4 @@
-"""Core logic for {{ project_name }}."""
+"""Core logic for {{ project_name | replace('\\', '\\\\') | replace('"', '\\"') }}."""
 
 
 def clamp(value: int, low: int, high: int) -> int:
