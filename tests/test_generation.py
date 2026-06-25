@@ -430,6 +430,14 @@ def test_ci_workflows(render: RenderFn, tmp_path: Path) -> None:
     # Superseded runs cancel themselves, like ci.yml (one in-flight run per ref).
     assert "concurrency:" in (project / ".github" / "workflows" / "scan.yml").read_text()
     assert "concurrency:" in (project / ".github" / "workflows" / "mutation.yml").read_text()
+    # push is restricted to main (PRs cover feature branches), so a branch with an open PR
+    # is not built twice; pull_request still triggers. String checks, not yaml.safe_load —
+    # PyYAML maps the `on:` key to boolean True.
+    assert 'branches: ["main"]' in ci
+    assert "pull_request:" in ci
+    scan_triggers = (project / ".github" / "workflows" / "scan.yml").read_text()
+    assert 'branches: ["main"]' in scan_triggers
+    assert "pull_request:" in scan_triggers
     bare = render(MINIMAL, tmp_path / "bare")
     assert not (bare / ".github" / "workflows" / "scan.yml").exists()
     # mutation.yml is gated solely by the empty-name idiom; assert it too (symmetry with scan.yml).
