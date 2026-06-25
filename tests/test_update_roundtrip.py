@@ -9,12 +9,21 @@ from typing import TYPE_CHECKING
 import copier
 import pytest
 
+from tests.conftest import without_interpreter_pins
 from tests.test_generation import FULL, MINIMAL
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
     from pathlib import Path
 
 DATA = {**MINIMAL, "enable_precommit_install": False}
+
+
+@pytest.fixture(autouse=True)
+def isolate_interpreter() -> Iterator[None]:
+    """Keep UV_PYTHON/VIRTUAL_ENV out of this module's copier runs and rendered `just ci`."""
+    with without_interpreter_pins():
+        yield
 
 
 def _git(repo: Path, *args: str) -> None:

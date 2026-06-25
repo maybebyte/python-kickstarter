@@ -10,8 +10,9 @@ from typing import TYPE_CHECKING, NotRequired, TypedDict, cast
 import copier
 import pytest
 import yaml
+from plumbum import local
 
-from tests.conftest import RenderFn, run_in
+from tests.conftest import RenderFn, run_in, without_interpreter_pins
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -112,6 +113,29 @@ def test_minimal_renders(render: RenderFn, tmp_path: Path) -> None:
     # No unrendered template artifacts leaked through.
     assert not list(project.rglob("*.jinja"))
     assert not (project / "{{ _copier_conf.answers_file }}.jinja").exists()
+
+
+def test_copy_tasks_ignore_a_leaked_interpreter_pin(render: RenderFn, tmp_path: Path) -> None:
+    """A leaked UV_PYTHON must not pin the rendered project's copy-time `uv lock`.
+
+    The CI matrix's setup-uv exports UV_PYTHON=<matrix python>; copier runs its `uv
+    lock`/`uv sync` _tasks through plumbum's local.env, so a leak there resolves the
+    generated project against the maintainer's interpreter instead of its own
+    requires-python and aborts every matrix Python below the rendered python_version
+    (default 3.13). Inject an incompatible pin into local.env -- copier's task channel,
+    the exact CI failure -- and prove the render fixture's scrub keeps the lock green.
+    """
+    prior = local.env.get("UV_PYTHON")
+    local.env["UV_PYTHON"] = "3.11"  # older than MINIMAL's python_version (3.13)
+    try:
+        project = render(MINIMAL, tmp_path / "out")
+        assert (project / "uv.lock").is_file()
+    finally:
+        if prior is None:
+            if "UV_PYTHON" in local.env:
+                del local.env["UV_PYTHON"]
+        else:
+            local.env["UV_PYTHON"] = prior
 
 
 def test_readme_renders(render: RenderFn, tmp_path: Path) -> None:
@@ -277,15 +301,16 @@ def test_precommit_config_valid(render: RenderFn, tmp_path: Path) -> None:
 def test_precommit_install_task_runs(template_root: Path, tmp_path: Path) -> None:
     """The copy-only hook-install task fires when the hidden flag is left at default."""
     dst = tmp_path / "installed"
-    _ = copier.run_copy(
-        str(template_root),
-        str(dst),
-        data={**MINIMAL, "enable_precommit_install": True},
-        defaults=True,
-        unsafe=True,
-        overwrite=True,
-        quiet=True,
-    )
+    with without_interpreter_pins():
+        _ = copier.run_copy(
+            str(template_root),
+            str(dst),
+            data={**MINIMAL, "enable_precommit_install": True},
+            defaults=True,
+            unsafe=True,
+            overwrite=True,
+            quiet=True,
+        )
     assert (dst / ".git" / "hooks" / "pre-commit").exists()
     assert (dst / ".git" / "hooks" / "pre-push").exists()
 
