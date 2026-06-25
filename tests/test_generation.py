@@ -174,6 +174,16 @@ def test_package_name_rejects_python_keywords(render: RenderFn, tmp_path: Path, 
         _ = render({**MINIMAL, "package_name": name}, tmp_path / name)
 
 
+def test_single_char_package_name_allowed(render: RenderFn, tmp_path: Path) -> None:
+    """A one-letter identifier is a valid package; the shape regex must not reject it.
+
+    `^[a-z][a-z0-9_]*$` accepts a single leading letter; the `+` form would wrongly reject
+    `q` and also break the default package_name derived from a single-char project_name.
+    """
+    project = render({**MINIMAL, "project_name": "Q", "package_name": "q"}, tmp_path / "out")
+    assert (project / "src" / "q" / "__init__.py").is_file()
+
+
 @pytest.mark.parametrize("name", ["", "   "])
 def test_project_name_rejects_empty(render: RenderFn, tmp_path: Path, name: str) -> None:
     """project_name is free text with no default; a blank answer must be rejected.
