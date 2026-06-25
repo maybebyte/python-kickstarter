@@ -1,8 +1,13 @@
 [project]
 name = "python-kickstarter"
-version = "0.0.0"
+version = "0.1.0"
 description = "Copier template scaffolding a fully-gated Python project."
 requires-python = ">=3.11"
+license = "ISC"
+authors = [{ name = "Ashlen", email = "dev@anthes.is" }]
+
+[project.urls]
+Repository = "https://github.com/maybebyte/python-kickstarter"
 
 [tool.uv]
 package = false
