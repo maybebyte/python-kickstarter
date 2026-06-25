@@ -491,6 +491,31 @@ def test_zizmor_audit_absent_when_sha_pin_policy_off(render: RenderFn, tmp_path:
     assert "zizmor" not in scan
 
 
+def test_rendered_workflows_pass_zizmor(render: RenderFn, tmp_path: Path) -> None:
+    """The workflows the template SHIPS pass the same auditor the repo runs on itself.
+
+    The repo's own zizmor job only scans test-template.yml; the rendered ci/scan/mutation
+    workflows are `*.jinja` (invalid YAML) and never reach it. Render the full combo and run
+    zizmor over the generated `.github/workflows` so an injection or over-permission regression
+    in an emitted workflow fails the maintainer gate, not a downstream's CI after release.
+    """
+    project = render(FULL, tmp_path / "out")
+    scan = (project / ".github" / "workflows" / "scan.yml").read_text()
+    match = re.search(r"zizmor@(\d+\.\d+\.\d+)", scan)
+    assert match, "zizmor pin not found in rendered scan.yml"
+    # --offline keeps it deterministic and token-free; the offline audits (template-injection,
+    # excessive-permissions, artipacked, ...) are exactly the emitted-workflow regressions this
+    # guards. The downstream's own scan.yml still runs zizmor's online audits.
+    _ = run_in(
+        project,
+        "uvx",
+        f"zizmor@{match.group(1)}",
+        "--persona=regular",
+        "--offline",
+        ".github/workflows",
+    )
+
+
 def test_apache_license_renders(render: RenderFn, tmp_path: Path) -> None:
     project = render({**MINIMAL, "license": "Apache-2.0"}, tmp_path / "out")
     text = (project / "LICENSE").read_text()
@@ -615,7 +640,9 @@ def test_coverage_floor_wiring(render: RenderFn, tmp_path: Path, floor: int) -> 
     assert f'["fail_under"] >= {floor}' in gate
 
 
-def test_tool_version_pins_have_no_drift(render: RenderFn, tmp_path: Path) -> None:
+def test_tool_version_pins_have_no_drift(
+    render: RenderFn, tmp_path: Path, template_root: Path
+) -> None:
     """Tool versions duplicated across files must agree — catches one-sided bumps.
 
     Asserts the sites agree rather than hardcoding a version, so a legitimate bump
@@ -640,6 +667,11 @@ def test_tool_version_pins_have_no_drift(render: RenderFn, tmp_path: Path) -> No
     # semgrep: local recipe vs CI step; gitleaks: mise pin vs CI download URL/tarball.
     assert len(_versions_near("semgrep", justfile, scan)) == 1
     assert len(_versions_near("gitleaks", mise, scan)) == 1
+    # zizmor: the maintainer's own workflow audit vs the rendered scan.yml step must agree.
+    # (pip-audit is intentionally NOT cross-checked: scan.yml pins `uvx pip-audit@X.Y.Z` while
+    # pyproject's dev group floors `pip-audit>=X.Y` — different mechanisms, not one shared pin.)
+    maintainer_ci = (template_root / ".github" / "workflows" / "test-template.yml").read_text()
+    assert len(_versions_near("zizmor", maintainer_ci, scan)) == 1
     # uv tool: mise pin vs every setup-uv `version:` across the workflows.
     uv_versions = set(re.findall(r'uv = "(\d+\.\d+\.\d+)"', mise))
     for wf in (ci, scan, mutation):
