@@ -5,7 +5,7 @@ A [Copier](https://copier.readthedocs.io/) template that scaffolds a fully-gated
 ## Use
 
 ```bash
-copier copy --trust gh:OWNER/python-kickstarter ./myproj
+copier copy --trust gh:maybebyte/python-kickstarter ./myproj
 ```
 
 `--trust` is required on both copy and update because the template uses Copier's `_tasks` (and reserves `_migrations` for future breaking renames) — features Copier classifies as "unsafe".
@@ -30,7 +30,7 @@ All toggles default to `true` — every guardrail layer ships unless you opt out
 | `enable_renovate` | Renovate bot config |
 | `enable_sha_pin_policy` | zizmor workflow audit in CI, plus a CI policy test asserting all Action SHAs are pinned — the policy test requires `enable_policy_tests` (only the zizmor audit ships otherwise) |
 
-Beyond their `just` recipes, several toggles also emit GitHub Actions workflows: `enable_scanners`, `enable_dependency_audit`, and `enable_sha_pin_policy` each contribute steps to a generated `scan.yml` (semgrep + gitleaks, pip-audit, and zizmor respectively), and `enable_mutation_tests` emits a scheduled `mutation.yml`. The always-on `ci.yml` runs the `just ci` gate on a Python-version matrix covering every interpreter at or above the project's `requires-python` floor (a single leg for the `3.13` default).
+Beyond the local recipes, several toggles also emit GitHub Actions workflows: `enable_scanners`, `enable_dependency_audit`, and `enable_sha_pin_policy` each contribute steps to a generated `scan.yml` (semgrep + gitleaks, pip-audit, and zizmor respectively), and `enable_mutation_tests` emits a scheduled `mutation.yml`. The always-on `ci.yml` runs the `just ci` gate on a Python-version matrix covering every interpreter at or above the project's `requires-python` floor (a single leg for the `3.13` default).
 
 ## Requirements
 
@@ -42,3 +42,7 @@ Beyond their `just` recipes, several toggles also emit GitHub Actions workflows:
 ## Maintainers
 
 See `AGENTS.md` for the template extension contract (adding guardrail layers, releasing, CI pinning rules).
+
+## License
+
+ISC — see [`LICENSE`](LICENSE). Generated projects get their own license, chosen at copy time (`MIT`, `Apache-2.0`, `ISC`, or `proprietary`).

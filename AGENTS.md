@@ -44,6 +44,8 @@ git push origin v0.1.0
 git describe --tags             # verify a reachable tag now exists (must succeed)
 ```
 
+Update `CHANGELOG.md` (promote the `Unreleased` entries under the new version) in the release commit before tagging.
+
 Breaking renames/moves need a version-gated `_migrations` entry.
 
 ## Updating a downstream project (operator preconditions)
