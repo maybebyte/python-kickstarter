@@ -15,8 +15,8 @@ package = false
 [dependency-groups]
 dev = [
     "copier>=9.6,<10",
-    "pytest>=8",
-    "pyyaml>=6",
+    "pytest>=8,<10",
+    "pyyaml>=6,<7",
     "basedpyright>=1.39,<1.40",
     "ruff>=0.15,<0.16",
 ]
