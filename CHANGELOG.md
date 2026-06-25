@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial Copier template scaffolding a fully-gated Python project: ruff (`select=ALL`
   or a curated allowlist), basedpyright (`recommended`), pytest with branch coverage, and
   a `just ci` gate that is green from the first commit.
+- Pre-commit hooks wired to the same gates: ruff (lint + format) and hygiene fixers on
+  commit, basedpyright and pytest on push, and a guard against unresolved `copier` `.rej`
+  conflict files; hooks are installed automatically on initial `copier copy`.
 - Independently toggleable guardrail layers: property tests (Hypothesis), mutation tests
   (mutmut), policy tests, scanners (Semgrep + gitleaks), dependency audit (pip-audit),
   Renovate config, and a SHA-pin policy (zizmor).
