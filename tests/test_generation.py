@@ -693,9 +693,12 @@ def test_tool_version_pins_have_no_drift(
             for v in cast("list[str]", re.findall(r"\d+\.\d+\.\d+", line))
         }
 
-    # semgrep: local recipe vs CI step; gitleaks: mise pin vs CI download URL/tarball.
+    # semgrep: local recipe vs CI step (single shared pin).
     assert len(_versions_near("semgrep", justfile, scan)) == 1
-    assert len(_versions_near("gitleaks", mise, scan)) == 1
+    # gitleaks: CI installs it from the mise.toml pin (the single, Renovate-managed source),
+    # so scan.yml must carry no hardcoded version/download for the local pin to drift against.
+    assert "releases/download" not in scan
+    assert "mise exec -- gitleaks" in scan
     # zizmor: the maintainer's own workflow audit vs the rendered scan.yml step must agree.
     # (pip-audit is intentionally NOT cross-checked: scan.yml pins `uvx pip-audit@X.Y.Z` while
     # pyproject's dev group floors `pip-audit>=X.Y` — different mechanisms, not one shared pin.)
