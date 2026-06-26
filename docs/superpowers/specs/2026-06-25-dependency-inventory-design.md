@@ -309,7 +309,8 @@ surface-map. **Correct toggle gating** (verified against the actual toggles):
 
 | Row / note | Gate |
 |---|---|
-| uv/Python deps row, `just deps` — also name the `uv_build` build-system floor (`[build-system].requires`, library projects) as a uv-pin site, and note it is **not** covered by the rendered-pin drift test (`test_generation.py:802`) | unconditional |
+| uv/Python deps row, `just deps` | unconditional |
+| `uv_build` build-system floor (`[build-system].requires`) named as a uv-pin site **not** covered by the rendered-pin drift test (`test_generation.py:802`) | `project_type == "library"` (applications render `[tool.uv] package = false`, no floor) |
 | mise tools row (`[tools]` always ships) | unconditional |
 | pre-commit `rev:` row (`.pre-commit-config.yaml` ships unconditionally — there is **no** `enable_precommit` toggle) | unconditional |
 | GitHub Actions row | unconditional; **zizmor trust note** → `enable_sha_pin_policy` |
@@ -335,6 +336,9 @@ rule's file-addition clause is not triggered, but the new behavior is locked per
   `uvx …@` shape that `pip-audit`/`zizmor` also match) is present when on, **absent when off**;
   likewise the gitleaks-as-scanner note.
 - **`enable_dependency_audit`:** the advisory note (`pip-audit`) present when on, absent off.
+- **`project_type`:** the `uv_build` build-system-floor mention present in a **library** render
+  and **absent** in an **application** render (which has no `[build-system]` block), so ⑦'s
+  library-gating of that mention is guarded.
 - **`enable_sha_pin_policy`:** the GitHub-Actions row's zizmor trust-note literal present when
   on, **absent when off** (render the off-case with `enable_sha_pin_policy=False` and another
   toggle on, mirroring the existing pip-audit both-ways test) — without this, ⑦'s fourth gated
