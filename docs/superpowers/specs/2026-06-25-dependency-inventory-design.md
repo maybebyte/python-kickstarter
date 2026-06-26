@@ -179,9 +179,12 @@ untrackable regardless; see the unpinned advisory in ④). It also **disables `u
 maintainer's own files, so a maintainer `uv` bump cannot touch it. The real reason is that the
 maintainer's `uv` is genuinely multi-site — `mise.toml` plus every `setup-uv version:` input in
 `test-template.yml`, with **no** maintainer-side test asserting they agree — so Renovate's
-`mise` manager would bump only `mise.toml` and silently desync the workflow inputs. `just` in
-`mise.toml` is single-site and bumps freely; `copier` is pinned in `mise.toml` **and** declared
-as a `uv` dev dep, but the two sites are mutually consistent and both bump freely. The
+`mise` manager would bump only `mise.toml` and silently desync the workflow inputs. `python` and
+`just` are single-site in `mise.toml` and bump freely (Renovate's `mise` manager tracks both);
+`copier` is pinned in `mise.toml` (exact, uncapped) **and** declared as a `uv` dev dep
+(`>= 9.6, < 10`) — the two agree today and both bump within 9.x, but a `copier` 10.x release
+would push the `mise.toml` pin past the dev-dep cap, with no maintainer test asserting they
+stay in sync (a known multi-site gap, like `uv`). The
 `pre-commit` manager is omitted (the harness has no pre-commit config). `uv` is bumped manually
 across all sites, as today.
 
@@ -282,7 +285,7 @@ block). The maintainer map is unconditional (no toggles in this repo):
 > | Surface | Pinned in | Read it with |
 > |---|---|---|
 > | uv / Python deps | `pyproject.toml`, `uv.lock` | `just deps` (`uv tree --frozen`); freshness `uv tree --outdated`; advisories — see below |
-> | mise tools | `mise.toml` `[tools]` | read the file *(Renovate `mise` manager tracks `just`/`copier`; `uv` is bump-manually)* |
+> | mise tools | `mise.toml` `[tools]` | read the file *(Renovate `mise` manager tracks `python`/`just`/`copier`; `uv` is bump-manually)* |
 > | GitHub Actions | `.github/workflows/*.yml` `uses:` (SHA + tag comment) | `grep -rn 'uses:' .github/workflows`; **trust:** the `zizmor` job enforces SHA pinning |
 > | uvx tool pins | run-steps (`uvx <tool>@<ver>`) | `grep -rn 'uvx .*@' .github/workflows` *(`zizmor` pin is parity-locked to the template; bump both together)* |
 > | generated project's graph | rendered template | `just deps-template` |
