@@ -273,8 +273,9 @@ block). The maintainer map is unconditional (no toggles in this repo):
 > | uvx tool pins | run-steps (`uvx <tool>@<ver>`) | `grep -rn 'uvx .*@' .github/workflows` *(`zizmor` pin is parity-locked to the template; bump both together)* |
 > | generated project's graph | rendered template | `just deps-template` |
 >
-> Advisories (the harness's deps are all dev, so no `--no-dev`):
-> `uv export --frozen --no-emit-project --no-hashes -o requirements-audit.txt && uvx pip-audit@2.10.1 -r requirements-audit.txt && rm -f requirements-audit.txt`
+> Advisories (the harness's deps are all dev, so no `--no-dev`; `pip-audit` is left unpinned —
+> a version baked into this markdown would be a tool pin no Renovate manager tracks):
+> `uv export --frozen --no-emit-project --no-hashes -o requirements-audit.txt && uvx pip-audit -r requirements-audit.txt && rm -f requirements-audit.txt`
 
 **⑤ `CHANGELOG.md` — `[Unreleased] / ### Added`** (additive → next minor): the
 `deps`/`deps-template` recipes, the AGENTS surface-map, and the maintainer `renovate.json`.
@@ -346,7 +347,7 @@ rule's file-addition clause is not triggered, but the new behavior is locked per
 
 | piece | how it's verified |
 |---|---|
-| maintainer `renovate.json` | `npx --yes --package renovate -- renovate-config-validator` passes (it auto-detects `renovate.json`; there is **no** standalone `renovate-config-validator` npm package — it ships inside `renovate`) |
+| maintainer `renovate.json` | `npx --yes --package renovate@<pin> -- renovate-config-validator` passes (it auto-detects `renovate.json`; there is **no** standalone `renovate-config-validator` npm package — it ships inside `renovate`). Pin the version rather than `renovate@latest`, and note it needs a Node runtime — a dev-only tool in no tracked surface (no `package.json`; `mise.toml` pins no node) |
 | no parity desync | rendered-template parity tests `test_generation.py:788`/`:797`/`:802` are unaffected (they read the *rendered* template, not the maintainer config); the maintainer's own `uvx zizmor` pin stays single-version because the config omits a `customManager`, and its multi-site `uv` pins stay in sync because the config disables `uv` |
 | `just deps` (both layers) | prints `uv tree --frozen` output; rendered-project run asserted in `test_generation.py` |
 | `just deps-template` | renders HEAD/worktree all-guardrails-on (hidden precommit-install helper forced off), locks, prints the tree, cleans up; exit 0 |
