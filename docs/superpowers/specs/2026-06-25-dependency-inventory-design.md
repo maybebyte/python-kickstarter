@@ -11,10 +11,12 @@ cross-check), and **`zizmor` is the GitHub Actions pin-enforcement gate** — bo
 shipped downstream; the gap is that the maintainer repo runs neither for itself. Concrete
 deliverables: a maintainer `renovate.json`, a `just deps` recipe + an "Inspect the
 dependency graph" surface-map in both layers, and a maintainer `just deps-template`.
-**Evidence-driven** by a deep-research pass (2026-06-25, run `wf_812c2942-714`; 21
-sources, 24/25 adversarially-verified claims): Renovate-for-freshness + zizmor-for-Actions
-is the prevailing practice (Cilium, Astral), and a bespoke "completeness-guard test" is
-**not** — so that is an explicit, documented non-goal.
+**Evidence-informed** by a deep-research pass (2026-06-25, run `wf_812c2942-714`; 21 sources;
+per-claim adversarial verification): Renovate-for-freshness is a documented pattern (Cilium),
+zizmor is purpose-built tooling for the Actions surface, and a bespoke "completeness-guard
+test" is not established practice — so that is an explicit, documented non-goal, justified
+primarily by its engineering cost and disclosed residual gap (its "not established practice"
+leg rests on a single `[medium; 2-1]` claim — see Evidence).
 
 > **Revision note.** This spec was revised after an adversarial review caught a blocker
 > (the first draft crowned Renovate's *out-of-repo, optional* dashboard as "the inventory
@@ -49,8 +51,9 @@ Two concrete gaps:
 
 ## Evidence basis (deep-research, 2026-06-25)
 
-A 5-angle research pass (21 sources; 105 claims; 25 verified by 3-vote adversarial panels
-— **24 confirmed, 1 killed**). The workflow's synthesis stage degraded to a placeholder;
+A 5-angle research pass (21 sources; 105 claims; 25 spot-checked by 3-vote adversarial panels).
+The aggregate confirmation rate over self-generated claims is not itself a credibility signal —
+the per-claim votes on the four load-bearing bullets below do the real work. The workflow's synthesis stage degraded to a placeholder;
 the findings below were reconstructed from the run's per-claim verification logs (run
 `wf_812c2942-714`), with exact wording recovered for the load-bearing claims — treat the
 confidence tags as "verified per-claim," not "from a clean synthesis."
@@ -63,7 +66,7 @@ confidence tags as "verified per-claim," not "from a clean synthesis."
   everything its managers detect (the *single killed claim* asserted the dashboard is
   "updates only, not an enumeration"; refuted 0-3 — the enumeration exists). Named
   practice: Cilium uses Renovate with `helpers:pinGitHubActionDigests` + `pinDigests:true`
-  as its cross-surface SHA-freshness mechanism ("the prevailing" pattern).
+  as its cross-surface SHA-freshness mechanism (one named adopter, not a broad survey).
   Sources: `docs.renovatebot.com/modules/manager/{,mise/,pre-commit/}`,
   `/key-concepts/dashboard/` (Renovate source `lib/workers/repository/package-files.ts`),
   `cncf.io` & `cilium.io` CI/CD posts.
@@ -83,8 +86,9 @@ confidence tags as "verified per-claim," not "from a clean synthesis."
   escaped its SHA-pinning."*
   Sources: `cncf.io` CI/CD post, `medium … 100 security projects` survey.
 
-**Conclusion that drives this design:** the mature-project trust model is Renovate
-(freshness) + zizmor (Actions enforcement). For an artifact that is "of record" and
+**Conclusion that drives this design:** the trust model these sources point to is Renovate
+(freshness) + zizmor (Actions enforcement) — a documented pattern (Cilium for Renovate;
+purpose-built tooling for zizmor), not a universally-surveyed standard. For an artifact that is "of record" and
 "trustworthy," an in-repo, always-present, **test-asserted** surface-map is more
 trustworthy than an external, optional dashboard — so the surface-map is the record and
 Renovate's auto-detected list is the independent cross-check. A bespoke completeness-guard
@@ -117,11 +121,12 @@ test is a deliberate non-goal.
 ## Non-goals (explicitly deferred, with rationale)
 
 - **A completeness-guard test** (fail CI if a pin appears outside an enumerated set of
-  files). No proven project relies on one; mature projects accept the residual
-  "forgot-to-wire-a-manager" gap and catch it with Scorecard/periodic audits. Its function
-  is partly served here for free by the **surface-map ⟷ Renovate Detected-Dependencies
-  cross-check** (two independent enumerations that should agree; disagreement is the drift
-  signal). The residual gap is in Risks.
+  files). Deferred primarily because a bespoke guard carries real authoring/maintenance cost
+  for a residual "forgot-to-wire-a-manager" gap we accept and catch with Scorecard/periodic
+  audits; that no proven project relies on one is corroborating, not load-bearing (it rests on
+  a single `[medium; 2-1]` claim). Its function is partly served here for free by the
+  **surface-map ⟷ Renovate Detected-Dependencies cross-check** (two independent enumerations
+  that should agree; disagreement is the drift signal). The residual gap is in Risks.
 - **A committed SBOM / generated inventory doc.** Python-only or scan-based; false
   cross-surface confidence and drift.
 - **Freshness/audit *recipes*.** `uv tree --outdated` and the advisory command are
@@ -382,6 +387,11 @@ rule's file-addition clause is not triggered, but the new behavior is locked per
   changes every generation test's render target. Safe now (tag == HEAD) and correct
   (validate the in-development template), but it is a harness-wide behavioral change to
   call out at review.
+- **The evidence basis is a single, partially-degraded run.** The design rests on one
+  deep-research pass (`wf_812c2942-714`) whose synthesis stage degraded to a placeholder, with
+  no replication. The judgment that an in-repo, test-asserted record beats an optional dashboard
+  survives even if the research is wrong; the "documented practice" framing and the
+  completeness-guard non-goal are what would weaken — treat those as the softest claims here.
 
 ## Sequence
 
