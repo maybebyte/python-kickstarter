@@ -273,6 +273,9 @@ block). The maintainer map is unconditional (no toggles in this repo):
 > | uvx tool pins | run-steps (`uvx <tool>@<ver>`) | `grep -rn 'uvx .*@' .github/workflows` *(`zizmor` pin is parity-locked to the template; bump both together)* |
 > | generated project's graph | rendered template | `just deps-template` |
 >
+> *(No pre-commit surface here — the maintainer harness has none of its own; downstream projects
+> get one, mapped in the template's `## Dependencies`.)*
+>
 > Advisories (the harness's deps are all dev, so no `--no-dev`; `pip-audit` is left unpinned —
 > a version baked into this markdown would be a tool pin no Renovate manager tracks):
 > `uv export --frozen --no-emit-project --no-hashes -o requirements-audit.txt && uvx pip-audit -r requirements-audit.txt && rm -f requirements-audit.txt`
@@ -290,7 +293,7 @@ surface-map. **Correct toggle gating** (verified against the actual toggles):
 
 | Row / note | Gate |
 |---|---|
-| uv/Python deps row, `just deps` | unconditional |
+| uv/Python deps row, `just deps` — also name the `uv_build` build-system floor (`[build-system].requires`, library projects) as a uv-pin site, and note it is **not** covered by the rendered-pin drift test (`test_generation.py:802`) | unconditional |
 | mise tools row (`[tools]` always ships) | unconditional |
 | pre-commit `rev:` row (`.pre-commit-config.yaml` ships unconditionally — there is **no** `enable_precommit` toggle) | unconditional |
 | GitHub Actions row | unconditional; **zizmor trust note** → `enable_sha_pin_policy` |
