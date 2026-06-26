@@ -7,3 +7,7 @@ dist/
 
 # Scratch output from test-driving the template (the README uses `copier copy … ./myproj`).
 /myproj/
+
+# Agent worktrees/state. Nested git repos here also break `vcs_ref="HEAD"` renders
+# (copier's `git add -A` stages them as phantom submodules → exit 128).
+/.claude/
