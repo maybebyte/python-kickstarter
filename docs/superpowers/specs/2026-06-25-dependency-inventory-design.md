@@ -256,12 +256,15 @@ deps-template:
 `_render` fixture calls `copier.run_copy(template_root, …)` with **no `vcs_ref`**, so it too
 targets the latest tag. New assertions for `deps`/the surface-map would render `v0.1.0`
 (which predates them) and **fail** once work lands post-tag. Fix: pass `vcs_ref="HEAD"` in
-the `_render` fixture. This is safe today (tag == HEAD → identical render) and is a general
+the `_render` fixture. This is safe today (tag == HEAD → identical render **on a clean tree**; with a dirty
+worktree copier `git add -A` + wip-commits the changes into a temporary ref, so the render
+reflects HEAD+worktree and emits a `DirtyLocalWarning`) and is a general
 correctness fix — it lets generation tests validate the in-development template (and the
 dirty worktree during TDD), not the last release. The roundtrip tests keep their explicit
 `vcs_ref="v0.1.0"` (they deliberately test the release→update path). *Flagged for reviewer
 attention: this touches the shared fixture, beyond "dependency visibility," but is a
-precondition for criterion 5.*
+precondition for criterion 5. (If `filterwarnings=error` is ever added to the suite, the
+per-render `DirtyLocalWarning` must be explicitly ignored.)*
 
 **④ `AGENTS.md` — new `## Inspect the dependency graph` section** (after the lint/format
 block). The maintainer map is unconditional (no toggles in this repo):
@@ -384,9 +387,10 @@ rule's file-addition clause is not triggered, but the new behavior is locked per
   (`uv lock`), skipping copier's copy-time `uv sync` and its bundled-Node download; it still
   fetches and resolves the dependency graph, so it is a several-seconds convenience, not a gate.
 - **`_render` fixture change has blast radius.** Pinning the fixture to `vcs_ref="HEAD"`
-  changes every generation test's render target. Safe now (tag == HEAD) and correct
-  (validate the in-development template), but it is a harness-wide behavioral change to
-  call out at review.
+  changes every generation test's render target. Safe now (tag == HEAD **on a clean tree**) and
+  correct (validate the in-development template), but it is a harness-wide behavioral change to
+  call out at review — and every dirty-tree render now emits copier's `DirtyLocalWarning` and
+  pays a wip-commit cost.
 - **The evidence basis is a single, partially-degraded run.** The design rests on one
   deep-research pass (`wf_812c2942-714`) whose synthesis stage degraded to a placeholder, with
   no replication. The judgment that an in-repo, test-asserted record beats an optional dashboard
