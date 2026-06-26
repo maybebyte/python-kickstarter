@@ -93,8 +93,8 @@ test is a deliberate non-goal.
 ## Goal / success criteria
 
 1. The maintainer repo carries a `renovate.json` so its uv/mise/Actions surfaces get
-   freshness PRs (catching the drift in Problem ②), **scoped to not desync the existing
-   `zizmor`/`uv` parity tests** (see Design ①).
+   freshness PRs (catching the drift in Problem ②), **scoped to avoid the `zizmor` parity
+   desync and the multi-site `uv` desync** (see Design ①).
 2. `just deps` exists in **both** layers as `uv tree --frozen` — reads the committed lock,
    no resolve, no network, no lockfile mutation (a bare `uv tree` can re-resolve and rewrite
    `uv.lock`; `--frozen` is what makes the "off the committed lock" contract true and earns
@@ -127,10 +127,12 @@ test is a deliberate non-goal.
   documented in `AGENTS.md` and run ad hoc; `just deps` stays graph-only. The template
   already ships `just audit` (gated on `enable_dependency_audit`).
 - **Changing the *template's* Renovate `uv` handling.** The maintainer config (added here)
-  must avoid `uv` drift to satisfy the maintainer's uv-consistency test; the *template's*
-  shipped config has the same multi-site `uv` pin but no such downstream test. Reconciling
-  the template's Renovate-vs-uv-pins is a known follow-up, out of scope here (this spec adds
-  no new downstream drift — it only adds a maintainer-side config).
+  disables `uv` to avoid desyncing its own multi-site `uv` pins (`mise.toml` + the `setup-uv`
+  inputs), which no maintainer-side test guards; the *template's* shipped config has the same
+  multi-site `uv` pin (plus the `uv_build` floor) but its *rendered* pins **are** checked, by
+  `test_generation.py:802`. Reconciling the template's Renovate-vs-uv-pins is a known follow-up,
+  out of scope here (this spec adds no new downstream drift — it only adds a maintainer-side
+  config).
 - **OpenSSF Scorecard / pinact workflows.** zizmor covers Actions pin-trust; Scorecard is a
   possible future layer.
 - **A maintainer `just ci` aggregate.** The repo has none; `deps`/`deps-template` are
@@ -159,15 +161,27 @@ Three roles, ordered by trustworthiness:
 
 ### Maintainer harness deliverables
 
-**① `renovate.json` (NEW), scoped to avoid the two parity desyncs.** Verified against the
-suite: `test_generation.py:797` asserts the maintainer `uvx zizmor@…` pin equals the
-rendered `scan.yml` pin (single shared version), and `:798-799` asserts the `mise` `uv`
-pin equals every `setup-uv version:` input. Therefore the maintainer config **omits a
-`customManager`** (its only `uvx` pin is `zizmor`, which must move in lockstep with the
-template — not bumped independently) and **disables `uv` updates** (multi-site pinned;
-Renovate's `mise` manager would bump only `mise.toml` and break `:798-799`). `just`/`copier`
-in `mise.toml` are single-site and bump freely. The `pre-commit` manager is omitted (the
-harness has no pre-commit config). `uv` is bumped manually across all sites, as today.
+**① `renovate.json` (NEW), scoped to avoid the `zizmor` parity desync and the multi-site `uv`
+desync.** Verified against the suite: `test_generation.py:797` asserts the maintainer
+`uvx zizmor@…` pin equals the rendered `scan.yml` pin (single shared version). Therefore the
+maintainer config **omits a `customManager`** — its only `uvx` pin is `zizmor`, which must move
+in lockstep with the template, not bumped independently (and a markdown-embedded pin would be
+untrackable regardless; see ④/⑤). It also **disables `uv` updates**, but not to keep a parity
+*test* green: that test (`test_generation.py:802`) reads the *rendered* template, not the
+maintainer's own files, so a maintainer `uv` bump cannot touch it. The real reason is that the
+maintainer's `uv` is genuinely multi-site — `mise.toml` plus every `setup-uv version:` input in
+`test-template.yml`, with **no** maintainer-side test asserting they agree — so Renovate's
+`mise` manager would bump only `mise.toml` and silently desync the workflow inputs. `just` in
+`mise.toml` is single-site and bumps freely; `copier` is pinned in `mise.toml` **and** declared
+as a `uv` dev dep, but the two sites are mutually consistent and both bump freely. The
+`pre-commit` manager is omitted (the harness has no pre-commit config). `uv` is bumped manually
+across all sites, as today.
+
+> **Residual risk (eyes open).** Disabling `uv` leaves the most drift-prone, multi-site pin with
+> no freshness and no drift detection. The freshness-preserving alternative is a `customManager`
+> matching the `setup-uv version:` inputs (datasource `pypi`, depName `uv`) grouped with the
+> `mise` manager so both move together — deferred here for the simpler manual bump, but recorded
+> as the better long-term option.
 
 ```json
 {
@@ -176,7 +190,7 @@ harness has no pre-commit config). `uv` is bumped manually across all sites, as 
   "lockFileMaintenance": { "enabled": true, "schedule": ["before 4am on monday"] },
   "packageRules": [
     {
-      "description": "uv is pinned in mise.toml AND every setup-uv version: input AND the uv_build floor; test_generation.py:798-799 enforces they agree. Renovate's mise manager would bump only mise.toml and desync them — bump uv manually across all sites instead.",
+      "description": "uv is pinned in mise.toml AND every setup-uv version: input in test-template.yml, with no maintainer-side test asserting they agree. Renovate's mise manager would bump only mise.toml and silently desync the workflow inputs — bump uv manually across all sites instead.",
       "matchDepNames": ["uv"],
       "enabled": false
     }
@@ -184,10 +198,12 @@ harness has no pre-commit config). `uv` is bumped manually across all sites, as 
 }
 ```
 
-(`config:recommended` tracks the uv/PEP 621 dev deps — the drift in Problem ②;
-`lockFileMaintenance` refreshes `uv.lock` weekly; the built-in `mise` manager tracks
-`just`/`copier`; `github-actions` + `helpers:pinGitHubActionDigests` keep the workflow
-`uses:` pins fresh.)
+(The Problem-② in-range drift is caught by `lockFileMaintenance` — the weekly `uv.lock`
+refresh surfaces `ruff`/`pydantic-core` (and `copier`'s lock entry) even though they stay
+within their `pyproject` ranges; the built-in `mise` manager catches `copier`'s exact
+`mise.toml` pin and bumps `just`. `config:recommended`'s `pep621` manager only opens PRs for
+constraint-*violating* upgrades. `github-actions` + `helpers:pinGitHubActionDigests` keep the
+workflow `uses:` pins fresh.)
 
 **② `justfile` — add `deps` and `deps-template`.** `deps-template` must be a shebang recipe
 (the file's `set shell := [bash -eu -o pipefail -c]` runs each plain line as a separate
@@ -320,7 +336,7 @@ rule's file-addition clause is not triggered, but the new behavior is locked per
 | piece | how it's verified |
 |---|---|
 | maintainer `renovate.json` | `npx --yes --package renovate -- renovate-config-validator` passes (it auto-detects `renovate.json`; there is **no** standalone `renovate-config-validator` npm package — it ships inside `renovate`) |
-| no parity desync | existing `test_generation.py:788/797/798-799` stay green (config omits a `customManager` and disables `uv`) |
+| no parity desync | rendered-template parity tests `test_generation.py:788`/`:797`/`:802` are unaffected (they read the *rendered* template, not the maintainer config); the maintainer's own `uvx zizmor` pin stays single-version because the config omits a `customManager`, and its multi-site `uv` pins stay in sync because the config disables `uv` |
 | `just deps` (both layers) | prints `uv tree --frozen` output; rendered-project run asserted in `test_generation.py` |
 | `just deps-template` | renders HEAD/worktree all-guardrails-on (hidden precommit-install helper forced off), locks, prints the tree, cleans up; exit 0 |
 | template `deps` recipe + AGENTS surface-map | new present-when-on / absent-when-off `test_generation.py` assertions with named anchors |
