@@ -324,8 +324,10 @@ surface-map. **Correct toggle gating** (verified against the actual toggles):
 **⑧ Verify `template/{% if enable_renovate %}renovate.json{% endif %}.jinja`** (the
 conditional-name idiom — there is no literal `template/renovate.json.jinja`). It already
 carries `config:recommended`, `helpers:pinGitHubActionDigests`, `"pre-commit": {enabled:true}`,
-and a `customManager` matching `uvx (semgrep|zizmor|pip-audit)@…`; `gitleaks` is covered by
-the mise manager. No change expected; change only if verification finds a gap.
+and a `customManager` matching `uvx (semgrep|zizmor|pip-audit)@…`; `gitleaks` is *expected* to be
+covered by the mise manager (verify its mise-registry backend resolves to a Renovate-supported
+datasource — likely `github-releases` via aqua). No change expected; change only if
+verification finds a gap.
 
 **⑨ `tests/test_generation.py` — assertions** (no new file under `template/`, so the NEVER
 rule's file-addition clause is not triggered, but the new behavior is locked per the house
