@@ -220,9 +220,11 @@ moment work lands under `[Unreleased]`.) With `ref == HEAD`, copier also folds i
 worktree — exactly what "inspect the in-development template" needs. Two execution hazards the
 recipe defuses: it invokes `uvx copier` (not `uv run`) so an incidental stale maintainer
 `uv.lock`/`.venv` is never re-synced by the inspection, and it `unset`s `VIRTUAL_ENV`/`UV_PYTHON`
-(exporting `UV_PYTHON_DOWNLOADS=automatic`) so copier's copy-time resolve uses the rendered
-project's own `>= 3.13` interpreter instead of inheriting the maintainer's 3.11 venv and aborting
-the sync — the same interpreter-pin leak `conftest.py`'s `without_interpreter_pins()` scrubs.
+(exporting `UV_PYTHON_DOWNLOADS=automatic`) so the recipe's explicit `uv lock` step (below)
+resolves the rendered project's own `>= 3.13` floor with a downloaded interpreter instead of
+inheriting a leaked older or pinned `UV_PYTHON` / sub-3.13 `VIRTUAL_ENV` (e.g. the 3.11 matrix
+interpreter) and aborting the resolve — the same interpreter-pin leak `conftest.py`'s
+`without_interpreter_pins()` scrubs.
 
 ```make
 # Print the uv-resolved dependency graph from the committed lock (no resolve, no network).
@@ -232,9 +234,10 @@ deps:
 # Inspect the in-development generated project's resolved graph: render HEAD/worktree with all
 # guardrail toggles on into a throwaway dir, lock it, print the tree. `uvx copier` (not
 # `uv run`) keeps this inspection from syncing/rewriting the maintainer's own lock/venv;
-# unsetting the maintainer interpreter pin lets the render resolve its own 3.13 toolchain (else
-# copier's copy-time `uv sync` inherits the 3.11 venv and aborts); `--skip-tasks` drops the
-# heavy copy-time `uv sync` (we only need the lock for `uv tree`). Home-based TMPDIR keeps the
+# unsetting the maintainer interpreter pin lets the explicit `uv lock` below resolve the
+# rendered project's own 3.13 toolchain (else it inherits a leaked older/pinned UV_PYTHON and
+# aborts); `--skip-tasks` drops every copy-time `_task` — git init, the heavy `uv sync`, the
+# hook install — since we only need the lock for `uv tree`. Home-based TMPDIR keeps the
 # throwaway on the same filesystem as the uv cache.
 deps-template:
     #!/usr/bin/env bash
@@ -363,7 +366,7 @@ rule's file-addition clause is not triggered, but the new behavior is locked per
 | maintainer `renovate.json` | `npx --yes --package renovate@<pin> -- renovate-config-validator` passes (it auto-detects `renovate.json`; there is **no** standalone `renovate-config-validator` npm package — it ships inside `renovate`). Pin the version rather than `renovate@latest`, and note it needs a Node runtime — a dev-only tool in no tracked surface (no `package.json`; `mise.toml` pins no node) |
 | no parity desync | rendered-template parity tests `test_generation.py:788`/`:797`/`:802` are unaffected (they read the *rendered* template, not the maintainer config); the maintainer's own `uvx zizmor` pin stays single-version because the config omits a `customManager`, and its multi-site `uv` pins stay in sync because the config disables `uv` |
 | `just deps` (both layers) | prints `uv tree --frozen` output; rendered-project run asserted in `test_generation.py` |
-| `just deps-template` | renders HEAD/worktree all-guardrails-on (hidden precommit-install helper forced off), locks, prints the tree, cleans up; exit 0 |
+| `just deps-template` | renders HEAD/worktree all-guardrails-on with `--skip-tasks` (every copy-time `_task` — uv sync, hook install — skipped), locks, prints the tree, cleans up; exit 0 |
 | template `deps` recipe + AGENTS surface-map | new present-when-on / absent-when-off `test_generation.py` assertions with named anchors |
 | maintainer AGENTS surface-map | prose review; the documented commands run clean ad hoc |
 | template Renovate config coverage | manual surface-by-surface check against the Problem table; unchanged unless a gap is found |
