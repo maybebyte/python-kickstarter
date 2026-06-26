@@ -21,8 +21,9 @@ leg rests on a single `[medium; 2-1]` claim — see Evidence).
 
 > **Revision note.** This spec was revised after an adversarial review caught a blocker
 > (the first draft crowned Renovate's *out-of-repo, optional* dashboard as "the inventory
-> of record") and two CI-breaking landmines (a maintainer `customManager` tracking
-> `zizmor`, and Renovate bumping `uv`, each desyncs an existing parity test). The trust
+> of record") and two desync landmines: a maintainer `customManager`
+> tracking `zizmor` would break an existing parity test (CI-breaking), and Renovate bumping
+> `uv` would *silently* desync the unguarded multi-site `uv` pins (no test catches it). The trust
 > model is now inverted (in-repo record; Renovate as freshness), and the maintainer
 > `renovate.json` is scoped to avoid both desyncs.
 
