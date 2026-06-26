@@ -172,7 +172,7 @@ desync.** Verified against the suite: `test_generation.py:797` asserts the maint
 `uvx zizmor@…` pin equals the rendered `scan.yml` pin (single shared version). Therefore the
 maintainer config **omits a `customManager`** — its only `uvx` pin is `zizmor`, which must move
 in lockstep with the template, not bumped independently (and a markdown-embedded pin would be
-untrackable regardless; see ④/⑤). It also **disables `uv` updates**, but not to keep a parity
+untrackable regardless; see the unpinned advisory in ④). It also **disables `uv` updates**, but not to keep a parity
 *test* green: that test (`test_generation.py:802`) reads the *rendered* template, not the
 maintainer's own files, so a maintainer `uv` bump cannot touch it. The real reason is that the
 maintainer's `uv` is genuinely multi-site — `mise.toml` plus every `setup-uv version:` input in
