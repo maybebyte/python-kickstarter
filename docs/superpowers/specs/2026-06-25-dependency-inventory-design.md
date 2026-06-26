@@ -161,11 +161,12 @@ Three roles, ordered by trustworthiness:
 - **Enforcement on the riskiest surface:** `zizmor`, already in CI on both layers
   (maintainer `test-template.yml` `zizmor` job; template `scan.yml` under
   `enable_sha_pin_policy`). Its `unpinned-uses` audit enforces SHA pinning under the
-  configured `--persona=regular`. **Caveat (verify in implementation):** zizmor's
-  SHA-comment-*drift* audit may require a higher persona than `regular`; so the repo's NEVER
-  rule ("don't bump a SHA without updating its exact-tag comment") is **not assumed
-  auto-enforced** — the surface-map states zizmor enforces *pinning*, and flags comment
-  drift only if the persona/audit mapping confirms it.
+  configured `--persona=regular`. **Caveat (verify in implementation):** the repo's NEVER
+  rule ("don't bump a SHA without updating its exact-tag comment") maps to zizmor's
+  `ref-version-mismatch` audit (added in zizmor 1.14.0), but whether it fires under
+  `--persona=regular` (vs a higher persona) is unverified — so the surface-map states zizmor
+  enforces *pinning* (always true via `unpinned-uses`) and claims comment-drift enforcement only
+  once that persona/audit mapping is confirmed.
 
 ### Maintainer harness deliverables
 
