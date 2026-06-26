@@ -8,7 +8,8 @@ in-repo**: a hand-maintained surface-map in `AGENTS.md` plus `just deps`, both
 version-controlled and test-asserted. **Renovate is the freshness/automation layer** on
 top (it keeps every surface current and provides an independent auto-detected
 cross-check), and **`zizmor` is the GitHub Actions pin-enforcement gate** — both already
-shipped downstream; the gap is that the maintainer repo runs neither for itself. Concrete
+shipped downstream. `zizmor` already runs in both layers (including the maintainer repo's
+`test-template.yml`); the only maintainer-side gap is that it carries no `renovate.json`. Concrete
 deliverables: a maintainer `renovate.json`, a `just deps` recipe + an "Inspect the
 dependency graph" surface-map in both layers, and a maintainer `just deps-template`.
 **Evidence-informed** by a deep-research pass (2026-06-25, run `wf_812c2942-714`; 21 sources;
