@@ -339,12 +339,15 @@ rule's file-addition clause is not triggered, but the new behavior is locked per
 - **`project_type`:** the `uv_build` build-system-floor mention present in a **library** render
   and **absent** in an **application** render (which has no `[build-system]` block), so ⑦'s
   library-gating of that mention is guarded.
-- **`enable_sha_pin_policy`:** the GitHub-Actions row's zizmor trust-note literal present when
-  on, **absent when off** (render the off-case with `enable_sha_pin_policy=False` and another
-  toggle on, mirroring the existing pip-audit both-ways test) — without this, ⑦'s fourth gated
-  piece is unguarded and criterion 5 is unmet.
-- **`enable_renovate`:** the Renovate lead/`Detected Dependencies` phrasing present when on,
-  absent (replaced by the fallback) when off.
+- **`enable_sha_pin_policy`:** the GitHub-Actions row's zizmor trust-note — anchored on the
+  stable `unpinned-uses`/SHA-pinning phrase, **not** the conditional comment-drift sentence —
+  present when on, **absent when off** (render the off-case with `enable_sha_pin_policy=False`
+  and another toggle on, mirroring the existing pip-audit both-ways test) — without this the
+  zizmor trust-note is unguarded and criterion 5 is unmet.
+- **`enable_renovate`:** the Renovate lead/`Detected Dependencies` phrasing present when on;
+  when off, assert the substring `Renovate` is **wholly absent** from the rendered
+  `## Dependencies` section (catching any ungated per-row "Renovate … tracks it" parenthetical,
+  not just the lead), replaced by the `just deps` fallback.
 - **runtime:** the rendered project's `just deps` exits clean (extends the existing
   install-and-run harness; relies on the `vcs_ref="HEAD"` fixture fix from ③).
 
