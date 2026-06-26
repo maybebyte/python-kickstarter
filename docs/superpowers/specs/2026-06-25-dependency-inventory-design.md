@@ -288,8 +288,10 @@ block). The maintainer map is unconditional (no toggles in this repo):
 > a version baked into this markdown would be a tool pin no Renovate manager tracks):
 > `uv export --frozen --no-emit-project --no-hashes -o requirements-audit.txt && uvx pip-audit -r requirements-audit.txt && rm -f requirements-audit.txt`
 
-**⑤ `CHANGELOG.md` — `[Unreleased] / ### Added`** (additive → next minor): the
-`deps`/`deps-template` recipes, the AGENTS surface-map, and the maintainer `renovate.json`.
+**⑤ `CHANGELOG.md` — `[Unreleased] / ### Added`** (additive → next minor): only the
+**template-side** additions downstreams receive — the `deps` recipe and the `## Dependencies`
+surface-map. The maintainer-only changes (`deps-template`, the maintainer `renovate.json`, the
+`_render` fixture pin) stay out of the downstream changelog by deliberate scope (see Migration).
 
 ### Template (shipped) deliverables
 
