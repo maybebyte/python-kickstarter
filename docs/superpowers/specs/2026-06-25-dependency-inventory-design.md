@@ -215,8 +215,9 @@ workflow `uses:` pins fresh.)
 (the file's `set shell := [bash -eu -o pipefail -c]` runs each plain line as a separate
 `bash -c`, so a `mktemp` dir would not survive), and must pass **`--vcs-ref HEAD`**: copier
 defaults to the latest SemVer tag (`v0.1.0`), so a plain `copier copy .` renders the *released*
-template, not the in-development one. (`v0.1.0` == HEAD today, masking this; it breaks the
-moment work lands under `[Unreleased]`.) With `ref == HEAD`, copier also folds in the dirty
+template, not the in-development one. (`template/` is unchanged since `v0.1.0`, so the
+tag-render and the HEAD-render are byte-identical today — masking this; it breaks the moment a
+template change lands without a new tag.) With `ref == HEAD`, copier also folds in the dirty
 worktree — exactly what "inspect the in-development template" needs. Two execution hazards the
 recipe defuses: it invokes `uvx copier` (not `uv run`) so an incidental stale maintainer
 `uv.lock`/`.venv` is never re-synced by the inspection, and it `unset`s `VIRTUAL_ENV`/`UV_PYTHON`
@@ -259,7 +260,7 @@ deps-template:
 `_render` fixture calls `copier.run_copy(template_root, …)` with **no `vcs_ref`**, so it too
 targets the latest tag. New assertions for `deps`/the surface-map would render `v0.1.0`
 (which predates them) and **fail** once work lands post-tag. Fix: pass `vcs_ref="HEAD"` in
-the `_render` fixture. This is safe today (tag == HEAD → identical render **on a clean tree**; with a dirty
+the `_render` fixture. This is safe today (`template/` is untouched since `v0.1.0`, so the tag-render and the HEAD-render are identical **on a clean tree**; with a dirty
 worktree copier `git add -A` + wip-commits the changes into a temporary ref, so the render
 reflects HEAD+worktree and emits a `DirtyLocalWarning`) and is a general
 correctness fix — it lets generation tests validate the in-development template (and the
@@ -392,7 +393,7 @@ rule's file-addition clause is not triggered, but the new behavior is locked per
   (`uv lock`), skipping copier's copy-time `uv sync` and its bundled-Node download; it still
   fetches and resolves the dependency graph, so it is a several-seconds convenience, not a gate.
 - **`_render` fixture change has blast radius.** Pinning the fixture to `vcs_ref="HEAD"`
-  changes every generation test's render target. Safe now (tag == HEAD **on a clean tree**) and
+  changes every generation test's render target. Safe now (`template/` unchanged since `v0.1.0` → identical render **on a clean tree**) and
   correct (validate the in-development template), but it is a harness-wide behavioral change to
   call out at review — and every dirty-tree render now emits copier's `DirtyLocalWarning` and
   pays a wip-commit cost.
