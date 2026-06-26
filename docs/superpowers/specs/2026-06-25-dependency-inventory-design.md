@@ -92,9 +92,10 @@ test is a deliberate non-goal.
 
 ## Goal / success criteria
 
-1. The maintainer repo carries a `renovate.json` so its uv/mise/Actions surfaces get
-   freshness PRs (catching the drift in Problem ②), **scoped to avoid the `zizmor` parity
-   desync and the multi-site `uv` desync** (see Design ①).
+1. The maintainer repo carries a `renovate.json` so that, **once the Renovate app is enabled
+   on the repo** (see Operator preconditions), its uv/mise/Actions surfaces get freshness PRs
+   (catching the drift in Problem ②), **scoped to avoid the `zizmor` parity desync and the
+   multi-site `uv` desync** (see Design ①).
 2. `just deps` exists in **both** layers as `uv tree --frozen` — reads the committed lock,
    no resolve, no network, no lockfile mutation (a bare `uv tree` can re-resolve and rewrite
    `uv.lock`; `--frozen` is what makes the "off the committed lock" contract true and earns
@@ -318,11 +319,14 @@ rule's file-addition clause is not triggered, but the new behavior is locked per
 
 ## Operator preconditions
 
-- **Renovate is recommended, not required.** The inventory of record is in-repo (the
-  surface-map + `just deps`), so nothing is hollow if the Renovate app is absent — only the
-  *freshness PRs and the auto-detected cross-check* lapse. To get those, the Mend Renovate
-  GitHub App (or a self-hosted runner) must be enabled on `maybebyte/python-kickstarter`;
-  committing `renovate.json` alone does not create the dashboard.
+- **Renovate freshness requires enabling the app — make it an explicit step.** The inventory of
+  record is in-repo (the surface-map + `just deps`), so nothing is hollow if the Renovate app is
+  absent — only the *freshness PRs and the auto-detected cross-check* lapse. But those are
+  exactly what Goal 1 promises, and **committing `renovate.json` produces zero PRs, zero
+  dashboard, and zero cross-check on its own**: the Mend Renovate GitHub App (or a self-hosted
+  runner) must be enabled on `maybebyte/python-kickstarter`. Confirm whether it is already
+  installed; if not, enabling it is a required step to close Goal 1 (tracked in the Sequence),
+  not just a recommendation.
 
 ## Migration / release impact
 
@@ -370,8 +374,9 @@ rule's file-addition clause is not triggered, but the new behavior is locked per
 
 ## Sequence
 
-Maintainer `renovate.json` → `_render` fixture `vcs_ref="HEAD"` → `just deps` +
-`deps-template` recipes → maintainer `AGENTS.md` surface-map → `CHANGELOG` → template
+Maintainer `renovate.json` → **enable the Renovate app (or confirm it is installed) so the
+freshness PRs Goal 1 promises actually appear** → `_render` fixture `vcs_ref="HEAD"` → `just
+deps` + `deps-template` recipes → maintainer `AGENTS.md` surface-map → `CHANGELOG` → template
 `justfile.jinja` `deps` → template `AGENTS.md.jinja` surface-map (toggle-correct) →
 `test_generation.py` present/absent assertions → verify the template Renovate config. The
 detailed, commit-by-commit plan is produced next by `writing-plans`.
