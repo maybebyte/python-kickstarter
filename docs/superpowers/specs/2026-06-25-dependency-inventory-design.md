@@ -224,7 +224,7 @@ template, not the in-development one. (`template/` is unchanged since `v0.1.0`, 
 tag-render and the HEAD-render are byte-identical today — masking this; it breaks the moment a
 template change lands without a new tag.) With `ref == HEAD`, copier also folds in the dirty
 worktree — exactly what "inspect the in-development template" needs. Two execution hazards the
-recipe defuses: it invokes `uvx copier` (not `uv run`) so an incidental stale maintainer
+recipe defuses: it invokes `uvx copier@9.15.2` (pinned to match `mise.toml`, not `uv run`) so an incidental stale maintainer
 `uv.lock`/`.venv` is never re-synced by the inspection, and it `unset`s `VIRTUAL_ENV`/`UV_PYTHON`
 (exporting `UV_PYTHON_DOWNLOADS=automatic`) so the recipe's explicit `uv lock` step (below)
 resolves the rendered project's own `>= 3.13` floor with a downloaded interpreter instead of
@@ -238,7 +238,7 @@ deps:
     uv tree --frozen
 
 # Inspect the in-development generated project's resolved graph: render HEAD/worktree with all
-# guardrail toggles on into a throwaway dir, lock it, print the tree. `uvx copier` (not
+# guardrail toggles on into a throwaway dir, lock it, print the tree. `uvx copier@9.15.2` (not
 # `uv run`) keeps this inspection from syncing/rewriting the maintainer's own lock/venv;
 # unsetting the maintainer interpreter pin lets the explicit `uv lock` below resolve the
 # rendered project's own 3.13 toolchain (else it inherits a leaked older/pinned UV_PYTHON and
@@ -254,7 +254,7 @@ deps-template:
     mkdir -p "$TMPDIR"
     dir="$(mktemp -d)"
     trap 'rm -rf "$dir"' EXIT
-    uvx copier copy --trust --defaults --vcs-ref HEAD --skip-tasks \
+    uvx copier@9.15.2 copy --trust --defaults --vcs-ref HEAD --skip-tasks \
         --data project_name="Deps Probe" \
         . "$dir"
     uv lock --directory "$dir"
