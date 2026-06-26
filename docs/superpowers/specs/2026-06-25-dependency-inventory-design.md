@@ -195,26 +195,38 @@ harness has no pre-commit config). `uv` is bumped manually across all sites, as 
 defaults to the latest SemVer tag (`v0.1.0`), so a plain `copier copy .` renders the *released*
 template, not the in-development one. (`v0.1.0` == HEAD today, masking this; it breaks the
 moment work lands under `[Unreleased]`.) With `ref == HEAD`, copier also folds in the dirty
-worktree — exactly what "inspect the in-development template" needs.
+worktree — exactly what "inspect the in-development template" needs. Two execution hazards the
+recipe defuses: it invokes `uvx copier` (not `uv run`) so an incidental stale maintainer
+`uv.lock`/`.venv` is never re-synced by the inspection, and it `unset`s `VIRTUAL_ENV`/`UV_PYTHON`
+(exporting `UV_PYTHON_DOWNLOADS=automatic`) so copier's copy-time resolve uses the rendered
+project's own `>= 3.13` interpreter instead of inheriting the maintainer's 3.11 venv and aborting
+the sync — the same interpreter-pin leak `conftest.py`'s `without_interpreter_pins()` scrubs.
 
 ```make
 # Print the uv-resolved dependency graph from the committed lock (no resolve, no network).
 deps:
     uv tree --frozen
 
-# Inspect the in-development generated project's resolved graph: render HEAD/worktree with
-# all guardrail toggles on into a throwaway dir, lock (copier's copy-time _tasks), print the
-# tree. Home-based TMPDIR — the 4G tmpfs /tmp overflows on a full render.
+# Inspect the in-development generated project's resolved graph: render HEAD/worktree with all
+# guardrail toggles on into a throwaway dir, lock it, print the tree. `uvx copier` (not
+# `uv run`) keeps this inspection from syncing/rewriting the maintainer's own lock/venv;
+# unsetting the maintainer interpreter pin lets the render resolve its own 3.13 toolchain (else
+# copier's copy-time `uv sync` inherits the 3.11 venv and aborts); `--skip-tasks` drops the
+# heavy copy-time `uv sync` (we only need the lock for `uv tree`). Home-based TMPDIR keeps the
+# throwaway on the same filesystem as the uv cache.
 deps-template:
     #!/usr/bin/env bash
     set -euo pipefail
-    export TMPDIR="${TMPDIR:-$HOME/.cache}"
+    unset VIRTUAL_ENV UV_PYTHON
+    export UV_PYTHON_DOWNLOADS=automatic
+    export TMPDIR="$HOME/.cache"
+    mkdir -p "$TMPDIR"
     dir="$(mktemp -d)"
     trap 'rm -rf "$dir"' EXIT
-    uv run copier copy --trust --defaults --vcs-ref HEAD \
+    uvx copier copy --trust --defaults --vcs-ref HEAD --skip-tasks \
         --data project_name="Deps Probe" \
-        --data enable_precommit_install=false \
         . "$dir"
+    uv lock --directory "$dir"
     uv tree --frozen --directory "$dir"
 ```
 
@@ -332,9 +344,9 @@ rule's file-addition clause is not triggered, but the new behavior is locked per
   config omits the `customManager` and `pre-commit` manager and disables `uv` (all for the
   reasons above); the template's keeps them. There is no parity invariant to enforce — the
   difference is documented here, so the earlier "unenforced parity" concern is moot.
-- **`deps-template` render cost.** A full render runs copier's copy-time `uv lock` + `uv
-  sync` (downloads, incl. the bundled Node binary for basedpyright). Several
-  seconds-to-minutes; it is a convenience, not a gate.
+- **`deps-template` render cost.** With `--skip-tasks` the recipe resolves only the lock
+  (`uv lock`), skipping copier's copy-time `uv sync` and its bundled-Node download; it still
+  fetches and resolves the dependency graph, so it is a several-seconds convenience, not a gate.
 - **`_render` fixture change has blast radius.** Pinning the fixture to `vcs_ref="HEAD"`
   changes every generation test's render target. Safe now (tag == HEAD) and correct
   (validate the in-development template), but it is a harness-wide behavioral change to
