@@ -308,10 +308,17 @@ rule's file-addition clause is not triggered, but the new behavior is locked per
 "present-when-on AND absent-when-off" contract):
 - **unconditional:** rendered `justfile` contains `deps:` and `uv tree`; rendered `AGENTS.md`
   contains the surface-map — anchor on the section/sub-heading text **and** a load-bearing
-  cell literal (e.g. the `mise.toml` row), plus the `pre-commit` row (always present).
-- **`enable_scanners`:** the `uvx`-scanner row literal (e.g. a `uvx …@` string) is present
-  when on, **absent when off**.
+  cell literal (e.g. the `mise.toml` row), plus the `pre-commit` row. Assert these in the
+  **MINIMAL (all-toggles-off) render too**, so accidental over-gating of an "unconditional"
+  row is caught (presence under a full render alone would not prove unconditionality).
+- **`enable_scanners`:** a **scanner-unique** literal (e.g. `uvx semgrep@1.167.0`, not a generic
+  `uvx …@` shape that `pip-audit`/`zizmor` also match) is present when on, **absent when off**;
+  likewise the gitleaks-as-scanner note.
 - **`enable_dependency_audit`:** the advisory note (`pip-audit`) present when on, absent off.
+- **`enable_sha_pin_policy`:** the GitHub-Actions row's zizmor trust-note literal present when
+  on, **absent when off** (render the off-case with `enable_sha_pin_policy=False` and another
+  toggle on, mirroring the existing pip-audit both-ways test) — without this, ⑦'s fourth gated
+  piece is unguarded and criterion 5 is unmet.
 - **`enable_renovate`:** the Renovate lead/`Detected Dependencies` phrasing present when on,
   absent (replaced by the fallback) when off.
 - **runtime:** the rendered project's `just deps` exits clean (extends the existing
