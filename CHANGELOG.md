@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The gitleaks `mise` pin and `scan.yml`'s full-history checkout are now emitted
+  only when the scanner layer is enabled; projects that enable `scan.yml` through
+  another layer no longer carry the unused pin or an unbounded `fetch-depth`.
+- The `[tool.ruff.lint.mccabe]` block is emitted only under the `all` ruleset,
+  where `max-complexity` governs a selected rule (C901); the curated ruleset no
+  longer renders it as dead config.
+
+### Fixed
+
+- `just fmt` runs `ruff check --fix` before `ruff format`, so its own output can
+  no longer be rejected by `just fmt-check`.
+- `just scan` scans committed history (`gitleaks git`) to match the CI gate,
+  catching secrets that were committed and later deleted from the working tree.
+- The mutation workflow no longer sets job-level `continue-on-error`, so genuine
+  infrastructure failures surface instead of being masked; surviving mutants stay
+  non-gating via `|| true` on the `mutmut` step.
+- `.editorconfig` no longer forces 2-space indentation on `.toml`, which
+  conflicted with the 4-space arrays in the generated `pyproject.toml`.
+- The `ci` recipe comment no longer claims the local gate mirrors everything that
+  blocks a PR; with scanners enabled it notes they run in CI only (`scan.yml`).
+
 ## [0.1.0] - 2026-06-25
 
 ### Added
