@@ -46,5 +46,6 @@ mutate:
 {% endif %}{% if enable_scanners %}
 scan:
     uvx semgrep@1.167.0 scan --config .semgrep.yml --metrics=off --error .
-    gitleaks dir . --redact --exit-code 1
+    # `git` (not `dir`): scan committed history like CI, catching secrets committed then deleted.
+    gitleaks git . --redact --exit-code 1
 {% endif -%}

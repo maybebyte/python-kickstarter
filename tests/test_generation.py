@@ -404,7 +404,11 @@ def test_scanner_layer(render: RenderFn, tmp_path: Path) -> None:
     on = render({**MINIMAL, "enable_scanners": True}, tmp_path / "on")
     assert (on / ".gitleaks.toml").is_file()
     assert (on / ".semgrep.yml").is_file()
-    assert "scan:" in (on / "justfile").read_text()
+    justfile = (on / "justfile").read_text()
+    assert "scan:" in justfile
+    # Local scan previews the CI gate: history scan (`git`), matching scan.yml — not `dir`.
+    assert "gitleaks git ." in justfile
+    assert "gitleaks dir" not in justfile
     off = render(MINIMAL, tmp_path / "off")
     assert not (off / ".gitleaks.toml").exists()
     assert not (off / ".semgrep.yml").exists()
