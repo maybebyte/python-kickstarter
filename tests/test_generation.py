@@ -417,6 +417,28 @@ def test_scanner_layer(render: RenderFn, tmp_path: Path) -> None:
     assert "gitleaks" not in (off / "mise.toml").read_text()
 
 
+def test_scanner_steps_absent_when_scanners_off(render: RenderFn, tmp_path: Path) -> None:
+    """The semgrep/gitleaks scan.yml steps are gated solely on enable_scanners.
+
+    Like the pip-audit and zizmor steps, the semgrep/gitleaks steps in scan.yml are gated
+    only by their toggle and absent from the local recipes' surface, so only a generation
+    assertion guards them — inverting the guard would emit a `--config .semgrep.yml` step
+    into a project shipping no .semgrep.yml. Render scan.yml via another layer, then prove
+    the scanner steps (and the scanners-only deep fetch) are gone when scanners are off.
+    """
+    off = render(
+        {**MINIMAL, "enable_scanners": False, "enable_dependency_audit": True},
+        tmp_path / "off",
+    )
+    scan = (off / ".github" / "workflows" / "scan.yml").read_text()
+    assert "pip-audit" in scan  # scan.yml really rendered (dependency-audit on), not empty
+    assert "semgrep" not in scan
+    assert "gitleaks" not in scan
+    # Full history is a scanners-only need; without gitleaks the checkout stays shallow.
+    assert "fetch-depth: 0" not in scan
+    assert "fetch-depth: 1" in scan
+
+
 def test_semgrep_runs_hermetically(render: RenderFn, tmp_path: Path) -> None:
     """Semgrep uses only the vendored config: telemetry off, no registry `auto`.
 
