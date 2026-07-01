@@ -90,7 +90,10 @@ def test_minimal_renders(render: RenderFn, tmp_path: Path) -> None:
 
     # Always-present support files render (AGENTS.md NEVER: no template file without an assertion).
     assert (project / ".editorconfig").is_file()
-    assert "indent_" in (project / ".editorconfig").read_text()
+    editorconfig = (project / ".editorconfig").read_text()
+    assert "indent_" in editorconfig
+    # .toml is not grouped into the 2-space glob; pyproject.toml arrays ship at 4-space.
+    assert "toml" not in editorconfig
     gitignore = (project / ".gitignore").read_text()
     assert "coverage.xml" in gitignore
     assert "requirements-audit.txt" in gitignore
@@ -404,10 +407,39 @@ def test_scanner_layer(render: RenderFn, tmp_path: Path) -> None:
     on = render({**MINIMAL, "enable_scanners": True}, tmp_path / "on")
     assert (on / ".gitleaks.toml").is_file()
     assert (on / ".semgrep.yml").is_file()
-    assert "scan:" in (on / "justfile").read_text()
+    justfile = (on / "justfile").read_text()
+    assert "scan:" in justfile
+    # Local scan previews the CI gate: history scan (`git`), matching scan.yml — not `dir`.
+    assert "gitleaks git ." in justfile
+    assert "gitleaks dir" not in justfile
+    # gitleaks is pinned in mise.toml only when the scanner layer ships (else dead config).
+    assert 'gitleaks = "8.30.1"' in (on / "mise.toml").read_text()
     off = render(MINIMAL, tmp_path / "off")
     assert not (off / ".gitleaks.toml").exists()
     assert not (off / ".semgrep.yml").exists()
+    assert "gitleaks" not in (off / "mise.toml").read_text()
+
+
+def test_scanner_steps_absent_when_scanners_off(render: RenderFn, tmp_path: Path) -> None:
+    """The semgrep/gitleaks scan.yml steps are gated solely on enable_scanners.
+
+    Like the pip-audit and zizmor steps, the semgrep/gitleaks steps in scan.yml are gated
+    only by their toggle and absent from the local recipes' surface, so only a generation
+    assertion guards them — inverting the guard would emit a `--config .semgrep.yml` step
+    into a project shipping no .semgrep.yml. Render scan.yml via another layer, then prove
+    the scanner steps (and the scanners-only deep fetch) are gone when scanners are off.
+    """
+    off = render(
+        {**MINIMAL, "enable_scanners": False, "enable_dependency_audit": True},
+        tmp_path / "off",
+    )
+    scan = (off / ".github" / "workflows" / "scan.yml").read_text()
+    assert "pip-audit" in scan  # scan.yml really rendered (dependency-audit on), not empty
+    assert "semgrep" not in scan
+    assert "gitleaks" not in scan
+    # Full history is a scanners-only need; without gitleaks the checkout stays shallow.
+    assert "fetch-depth: 0" not in scan
+    assert "fetch-depth: 1" in scan
 
 
 def test_semgrep_runs_hermetically(render: RenderFn, tmp_path: Path) -> None:
@@ -496,11 +528,11 @@ def test_ci_workflows(render: RenderFn, tmp_path: Path) -> None:
     assert '"3.12"' not in ci
     assert (project / ".github" / "workflows" / "scan.yml").is_file()
     assert (project / ".github" / "workflows" / "mutation.yml").is_file()
-    # Mutation workflow is non-gating.
-    assert (
-        "continue-on-error: true"
-        in (project / ".github" / "workflows" / "mutation.yml").read_text()
-    )
+    # Mutation is non-gating on survivors (the run step swallows mutmut's nonzero exit) but
+    # carries no job-level continue-on-error, so genuine infra breakage still surfaces as red.
+    mutation = (project / ".github" / "workflows" / "mutation.yml").read_text()
+    assert "mutmut run || true" in mutation
+    assert "continue-on-error" not in mutation
     # Every job caps its runtime (else a hung step burns GitHub's 6h default).
     assert "timeout-minutes:" in ci
     assert "timeout-minutes:" in (project / ".github" / "workflows" / "scan.yml").read_text()
@@ -712,13 +744,18 @@ def test_curated_ruleset(render: RenderFn, tmp_path: Path) -> None:
     # The pydocstyle convention only takes effect when the D rules are selected (the
     # `all` ruleset); curated omits D, so the block must not render as dead config.
     assert "[tool.ruff.lint.pydocstyle]" not in pyproject
+    # Same for the mccabe block: max-complexity only governs C901 (C90 prefix), which curated
+    # does not select, so it must not render as dead config there either.
+    assert "[tool.ruff.lint.mccabe]" not in pyproject
     _ = run_in(project, "uv", "run", "ruff", "check", ".")
     # curated is the only MATRIX combo not otherwise run through a full `just ci`
     # (test_matrix runs only the fast subset); close that gap on the rendered project here.
     _ = run_in(project, "just", "ci")
     # ...and it IS present on the `all` path, where the D rules are active.
     allp = render(MINIMAL, tmp_path / "all")
-    assert "[tool.ruff.lint.pydocstyle]" in (allp / "pyproject.toml").read_text()
+    all_pyproject = (allp / "pyproject.toml").read_text()
+    assert "[tool.ruff.lint.pydocstyle]" in all_pyproject
+    assert "[tool.ruff.lint.mccabe]" in all_pyproject
 
 
 @pytest.mark.parametrize("version", ["3.11", "3.12", "3.13"])

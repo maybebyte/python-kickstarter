@@ -21,7 +21,7 @@ The maintainer harness is held to the same `recommended` bar the template ships.
 
 ```bash
 just lint        # ruff check . — select=["ALL"] over tests/ (config-derived, audited ignores)
-just fmt         # ruff format . + ruff check --fix . (apply safe fixes)
+just fmt         # ruff check --fix . + ruff format . (apply safe fixes)
 just fmt-check   # ruff format --check . (CI's format gate)
 ```
 
@@ -31,12 +31,12 @@ The maintainer harness runs the same full `select=["ALL"]` ruleset the template 
 
 1. Add an `enable_*` toggle to `copier.yml`.
 2. Add the conditional file(s) under `template/` (file: `{% if flag %}name{% endif %}.jinja`; dir: `{% if flag %}dir{% endif %}/`).
-3. Wire it into `template/justfile.jinja` (recipe + `ci` dep). Then, where applicable: a dep in `template/pyproject.toml.jinja` (skip it for `uvx`-run tools like the scanners), a section in `template/AGENTS.md.jinja`, and a CI surface under `template/.github/workflows/` (a conditional step in `scan.yml`, or a dedicated conditional workflow file via the empty-name idiom).
+3. Wire it into `template/justfile.jinja` (a recipe; add it as a `ci` dep only for a *gating* layer — out-of-band checks like `scan`/`mutate` ship a recipe but stay off `ci`, and CI-only layers like renovate/sha-pin add no recipe at all). Then, where applicable: a dep in `template/pyproject.toml.jinja` (skip it for `uvx`-run tools like the scanners), a section in `template/AGENTS.md.jinja`, and a CI surface under `template/.github/workflows/` (a conditional step in `scan.yml`, or a dedicated conditional workflow file via the empty-name idiom).
 4. Extend `tests/test_generation.py`: assert present-when-on AND absent-when-off, and that the layer's gate passes.
 
 ## Release
 
-`copier update` targets the **latest SemVer git tag, not HEAD** — an untagged template makes every downstream update silently pull in-progress commits. The repo carries no tags until the first release is cut, so tag the released commit (on `main`) before announcing it or letting any downstream consume the template:
+`copier update` targets the **latest SemVer git tag, not HEAD** — an untagged template makes every downstream update silently pull in-progress commits. Always tag each released commit (on `main`) before announcing it or letting any downstream consume the template (v0.1.0 was the first release):
 
 ```bash
 git tag -a v0.1.0 -m "v0.1.0"   # annotate the released commit

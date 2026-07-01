@@ -412,6 +412,7 @@ source = { virtual = "." }
 dev = [
     { name = "basedpyright" },
     { name = "copier" },
+    { name = "plumbum" },
     { name = "pytest" },
     { name = "pyyaml" },
     { name = "ruff" },
@@ -423,6 +424,7 @@ dev = [
 dev = [
     { name = "basedpyright", specifier = ">=1.39,<1.40" },
     { name = "copier", specifier = ">=9.6,<10" },
+    { name = "plumbum", specifier = ">=1.8,<3" },
     { name = "pytest", specifier = ">=8,<10" },
     { name = "pyyaml", specifier = ">=6,<7" },
     { name = "ruff", specifier = ">=0.15,<0.16" },

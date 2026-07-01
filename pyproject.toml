@@ -15,6 +15,9 @@ package = false
 [dependency-groups]
 dev = [
     "copier>=9.6,<10",
+    # copier drives its _tasks through plumbum; the harness imports `plumbum.local` directly to
+    # scrub interpreter pins from that channel, so declare it rather than ride copier's transitive pin.
+    "plumbum>=1.8,<3",
     "pytest>=8,<10",
     "pyyaml>=6,<7",
     "basedpyright>=1.39,<1.40",

@@ -91,9 +91,10 @@ def render(template_root: Path) -> RenderFn:
         pytest.fail(f"required tools not on PATH: {missing}")
 
     def _render(data: Mapping[str, object], dst: Path) -> Path:
-        # Generation renders skip the slow pre-commit hook-install task (the config
-        # does not exist until that layer is added). A dedicated test in Task 7
-        # exercises the install path with the flag left at its default.
+        # Generation renders skip the slow pre-commit hook-install task: it is a copy-time
+        # _task (`uv run pre-commit install --install-hooks`), network-bound and irrelevant to
+        # what these tests assert. `test_precommit_install_task_runs` covers the install path
+        # separately with the flag at its default.
         # The copy-time `uv lock`/`uv sync` _tasks must resolve against the generated
         # project's requires-python, not a leaked UV_PYTHON/VIRTUAL_ENV (see the pins note).
         with without_interpreter_pins():
@@ -101,6 +102,10 @@ def render(template_root: Path) -> RenderFn:
                 str(template_root),
                 str(dst),
                 data={"enable_precommit_install": False, **data},
+                # Copy the working template (HEAD), not copier's default of the latest
+                # release tag — otherwise the suite would validate the released template
+                # and silently ignore every change since. (run_update tests pin their ref.)
+                vcs_ref="HEAD",
                 defaults=True,
                 unsafe=True,
                 overwrite=True,
