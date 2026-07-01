@@ -3,4 +3,7 @@ python = "{{ python_version }}"
 uv = "0.11.23"
 just = "1.50.0"
 copier = "9.15.2"
+{%- if enable_scanners %}
+# scanner-only tool; pinned here so Renovate's mise manager keeps it fresh.
 gitleaks = "8.30.1"
+{%- endif %}

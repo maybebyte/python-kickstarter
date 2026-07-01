@@ -409,9 +409,12 @@ def test_scanner_layer(render: RenderFn, tmp_path: Path) -> None:
     # Local scan previews the CI gate: history scan (`git`), matching scan.yml — not `dir`.
     assert "gitleaks git ." in justfile
     assert "gitleaks dir" not in justfile
+    # gitleaks is pinned in mise.toml only when the scanner layer ships (else dead config).
+    assert 'gitleaks = "8.30.1"' in (on / "mise.toml").read_text()
     off = render(MINIMAL, tmp_path / "off")
     assert not (off / ".gitleaks.toml").exists()
     assert not (off / ".semgrep.yml").exists()
+    assert "gitleaks" not in (off / "mise.toml").read_text()
 
 
 def test_semgrep_runs_hermetically(render: RenderFn, tmp_path: Path) -> None:
