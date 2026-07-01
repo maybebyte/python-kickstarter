@@ -60,9 +60,13 @@ ignore = [
 select = ["E", "F", "UP", "B", "SIM", "I", "ANN", "S", "C4", "DTZ", "PTH", "RUF", "PL"]
 {%- endif %}
 
+{% if ruff_ruleset == "all" -%}
+# max-complexity governs C901 (mccabe), active only under select=ALL; the curated
+# ruleset omits the C90 prefix, so this block would be dead config there (like pydocstyle).
 [tool.ruff.lint.mccabe]
 max-complexity = 10
 
+{% endif -%}
 [tool.ruff.lint.pylint]
 max-args = 8
 max-branches = 12

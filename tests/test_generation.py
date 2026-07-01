@@ -712,13 +712,18 @@ def test_curated_ruleset(render: RenderFn, tmp_path: Path) -> None:
     # The pydocstyle convention only takes effect when the D rules are selected (the
     # `all` ruleset); curated omits D, so the block must not render as dead config.
     assert "[tool.ruff.lint.pydocstyle]" not in pyproject
+    # Same for the mccabe block: max-complexity only governs C901 (C90 prefix), which curated
+    # does not select, so it must not render as dead config there either.
+    assert "[tool.ruff.lint.mccabe]" not in pyproject
     _ = run_in(project, "uv", "run", "ruff", "check", ".")
     # curated is the only MATRIX combo not otherwise run through a full `just ci`
     # (test_matrix runs only the fast subset); close that gap on the rendered project here.
     _ = run_in(project, "just", "ci")
     # ...and it IS present on the `all` path, where the D rules are active.
     allp = render(MINIMAL, tmp_path / "all")
-    assert "[tool.ruff.lint.pydocstyle]" in (allp / "pyproject.toml").read_text()
+    all_pyproject = (allp / "pyproject.toml").read_text()
+    assert "[tool.ruff.lint.pydocstyle]" in all_pyproject
+    assert "[tool.ruff.lint.mccabe]" in all_pyproject
 
 
 @pytest.mark.parametrize("version", ["3.11", "3.12", "3.13"])
