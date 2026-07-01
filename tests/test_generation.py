@@ -90,7 +90,10 @@ def test_minimal_renders(render: RenderFn, tmp_path: Path) -> None:
 
     # Always-present support files render (AGENTS.md NEVER: no template file without an assertion).
     assert (project / ".editorconfig").is_file()
-    assert "indent_" in (project / ".editorconfig").read_text()
+    editorconfig = (project / ".editorconfig").read_text()
+    assert "indent_" in editorconfig
+    # .toml is not grouped into the 2-space glob; pyproject.toml arrays ship at 4-space.
+    assert "toml" not in editorconfig
     gitignore = (project / ".gitignore").read_text()
     assert "coverage.xml" in gitignore
     assert "requirements-audit.txt" in gitignore
