@@ -9,9 +9,11 @@ ci: fmt-check lint typecheck test{% if enable_property_tests %} fuzz{% endif %}{
 
 verify: ci
 
+# Lint-fix BEFORE format: ruff's fixes (import sort, SIM/UP/C4 rewrites) can emit
+# unformatted code, so the formatter must run last or `fmt-check` may reject `fmt`'s output.
 fmt:
-    uv run ruff format .
     uv run ruff check --fix .
+    uv run ruff format .
 
 fmt-check:
     uv run ruff format --check .

@@ -16,9 +16,11 @@ typecheck:
     uv run basedpyright
 
 # Auto-format + apply safe lint fixes to this repo's own tooling (the tests/ harness).
+# Lint-fix BEFORE format: ruff's fixes (import sort, SIM/UP/C4 rewrites) can emit
+# unformatted code, so the formatter must run last or `fmt-check` may reject `fmt`'s output.
 fmt:
-    uv run ruff format .
     uv run ruff check --fix .
+    uv run ruff format .
 
 # CI's format gate: fail if anything is unformatted.
 fmt-check:

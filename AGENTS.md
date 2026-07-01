@@ -21,7 +21,7 @@ The maintainer harness is held to the same `recommended` bar the template ships.
 
 ```bash
 just lint        # ruff check . — select=["ALL"] over tests/ (config-derived, audited ignores)
-just fmt         # ruff format . + ruff check --fix . (apply safe fixes)
+just fmt         # ruff check --fix . + ruff format . (apply safe fixes)
 just fmt-check   # ruff format --check . (CI's format gate)
 ```
 
