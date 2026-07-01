@@ -101,6 +101,10 @@ def render(template_root: Path) -> RenderFn:
                 str(template_root),
                 str(dst),
                 data={"enable_precommit_install": False, **data},
+                # Copy the working template (HEAD), not copier's default of the latest
+                # release tag — otherwise the suite would validate the released template
+                # and silently ignore every change since. (run_update tests pin their ref.)
+                vcs_ref="HEAD",
                 defaults=True,
                 unsafe=True,
                 overwrite=True,
