@@ -525,11 +525,11 @@ def test_ci_workflows(render: RenderFn, tmp_path: Path) -> None:
     assert '"3.12"' not in ci
     assert (project / ".github" / "workflows" / "scan.yml").is_file()
     assert (project / ".github" / "workflows" / "mutation.yml").is_file()
-    # Mutation workflow is non-gating.
-    assert (
-        "continue-on-error: true"
-        in (project / ".github" / "workflows" / "mutation.yml").read_text()
-    )
+    # Mutation is non-gating on survivors (the run step swallows mutmut's nonzero exit) but
+    # carries no job-level continue-on-error, so genuine infra breakage still surfaces as red.
+    mutation = (project / ".github" / "workflows" / "mutation.yml").read_text()
+    assert "mutmut run || true" in mutation
+    assert "continue-on-error" not in mutation
     # Every job caps its runtime (else a hung step burns GitHub's 6h default).
     assert "timeout-minutes:" in ci
     assert "timeout-minutes:" in (project / ".github" / "workflows" / "scan.yml").read_text()
