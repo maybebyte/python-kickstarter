@@ -22,6 +22,7 @@ dev = [
     "pyyaml>=6,<7",
     "basedpyright>=1.39,<1.40",
     "ruff>=0.15,<0.16",
+    "pre-commit>=4,<5",
 ]
 
 [tool.pytest.ini_options]
