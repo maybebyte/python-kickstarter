@@ -35,3 +35,9 @@ setup:
 precommit:
     uv run pre-commit run --all-files
     uv run pre-commit run --all-files --hook-stage pre-push
+
+# Out-of-band secret + SAST scan (semgrep + gitleaks); enforced in CI by the `scan` job, not `ci`.
+scan:
+    uvx semgrep@1.167.0 scan --config .semgrep.yml --metrics=off --error .
+    # `git` (not `dir`): scan committed history like CI, catching secrets committed then deleted.
+    gitleaks git . --redact --exit-code 1
