@@ -115,7 +115,7 @@ Expected: gitleaks 8.30.1 installed. Verify with `mise exec -- gitleaks version`
 Run the scan in a mise-active way so the recipe's bare `gitleaks` resolves under the non-interactive executor shell:
 Run: `mise exec -- just scan`
 (Equivalently: `uvx semgrep@1.167.0 scan --config .semgrep.yml --metrics=off --error .` then `mise exec -- gitleaks git . --redact --exit-code 1`.)
-Expected: semgrep prints `0 findings` (or no blocking findings) and exits 0 (the only `eval(` in `tests/` is a string literal at `tests/test_generation.py`, which the `eval(...)` Call pattern does not match); gitleaks prints `no leaks found` and exits 0.
+Expected: semgrep prints `Targets scanned: 0` / `0 findings` and exits 0 — `tests/` is excluded by semgrep's built-in `.semgrepignore` and there is no `src/`, so semgrep scans 0 files (expected, not a misconfiguration; it is a forward guard for any future non-test Python); gitleaks prints `161 commits scanned` / `no leaks found` and exits 0.
 **Failure taxonomy — classify before reacting:**
 - `gitleaks: command not found` (exit 127) → PATH/activation issue, NOT a leak and NOT a network problem; re-run via `mise exec -- gitleaks …`.
 - A real historical secret or a false-positive leak → **STOP and report**; do not suppress — this is exactly what the local-first run exists to catch.
@@ -225,11 +225,14 @@ gitleaks **full-history** secret scan (`.gitleaks.toml` = default ruleset). It i
 out-of-band (chained into no recipe), but CI enforces it: the `scan` job in
 `.github/workflows/test-template.yml` is a blocking PR gate. gitleaks is pinned
 in `mise.toml` (`gitleaks = "8.30.1"`) and installed in CI via `jdx/mise-action`
-+ `mise exec`; semgrep runs via `uvx semgrep@1.167.0` (no dep, like zizmor). The
-semgrep rule is Python-only, so `tests/` is the effective target (`template/` is
-Jinja; there is no `src/`); gitleaks scans the whole tree + history regardless of
-language. Never pass semgrep `--config auto` (it drops the pinned rule and needs
-metrics on); never hardcode the gitleaks version in CI (install via `mise exec`).
++ `mise exec`; semgrep runs via `uvx semgrep@1.167.0` (no dep, like zizmor).
+semgrep scans non-test Python only — its built-in `.semgrepignore` excludes
+`tests/`, and there is no `src/`, so on this repo it currently scans **0 files**
+(it mirrors the shipped gate and fires if any non-test Python is added at root).
+gitleaks scans the whole tree + full history regardless of language, and is the
+substantive gate here. Never pass semgrep `--config auto` (it drops the pinned
+rule and needs metrics on); never hardcode the gitleaks version in CI (install
+via `mise exec`).
 
 Deliberate divergences from the template's `scan.yml`
 (`template/.github/workflows/…scan.yml….jinja`): the maintainer folds scanning

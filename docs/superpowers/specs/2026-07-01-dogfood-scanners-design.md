@@ -10,11 +10,21 @@ audit (`docs/superpowers/plans/2026-07-01-dogfood-gap-audit.md`) — the one
 substantive *security* gap: a secret committed (even then deleted) to the
 maintainer repo is currently uncaught by the very tool it ships.
 
-This design was produced from a multi-agent audit and adversarially reviewed;
-the corrections are folded into the wiring below. The scan starts green today —
-the only `eval(` token in `tests/` is a string literal in
-`test_generation.py` (a `Constant` node), which semgrep's `eval(...)` Call
-pattern does not match.
+This design was produced from a multi-agent audit and adversarially reviewed,
+then corrected during execution by an empirical finding (below). Both scanners
+run green today: gitleaks scanned all 161 commits with no leaks, and semgrep
+exits clean.
+
+**Empirical finding — semgrep is currently inert on the maintainer.** semgrep's
+built-in `.semgrepignore` excludes `tests/` (and `test/`), and there is no
+`src/`, so semgrep scans **0 files** on the maintainer today (verified:
+`Targets scanned: 0`). This is faithful to the template, which runs the identical
+command against downstream **product code** (`src/PKG`) and ignores its `tests/`
+too — the maintainer simply has no product Python. semgrep is therefore kept as a
+byte-parity mirror and **forward guard**: it validates the shipped config on the
+real repo and fires the moment any non-test Python is added at root. gitleaks is
+the substantive gate here. (Alternative considered: drop semgrep as
+not-applicable, like mutmut/coverage — see Out of scope.)
 
 **Scope:** gitleaks + semgrep only. pip-audit (gap #5) shares the template's
 `scan.yml` but is a separate gap and a separate PR; it will add one step to the
@@ -45,10 +55,12 @@ recommended options and remain revisitable at spec review.
    `uvx semgrep@1.167.0` (no pyproject dep — the "uvx-run tools skip the dep"
    convention, matching zizmor).
 5. **semgrep target: `.`** (verbatim mirror). The rule is `languages: [python]`,
-   so only `tests/*.py` is parsed regardless (`template/` Jinja and non-Python
-   trees are skipped); `.` preserves byte-parity and auto-covers any future
-   root-level Python. Hermetic flags `--config .semgrep.yml --metrics=off
-   --error` are non-negotiable — never `--config auto`.
+   and semgrep's built-in `.semgrepignore` excludes `tests/`; with no `src/`, the
+   maintainer has **0 scannable files today** (see the empirical finding in Goal).
+   `.` is kept for byte-parity with the template (which scans downstream `src/`)
+   and auto-covers any future non-test Python added at root. Hermetic flags
+   `--config .semgrep.yml --metrics=off --error` are non-negotiable — never
+   `--config auto`.
 6. **`scan` stays out-of-band** — not chained into any recipe. The template's
    `ci` recipe omits scan ("scanners run in CI only"); the maintainer has no `ci`
    recipe at all, and the pre-commit dogfood likewise kept `precommit` off any
@@ -208,11 +220,14 @@ gitleaks **full-history** secret scan (`.gitleaks.toml` = default ruleset). It i
 out-of-band (chained into no recipe), but CI enforces it: the `scan` job in
 `.github/workflows/test-template.yml` is a blocking PR gate. gitleaks is pinned
 in `mise.toml` (`gitleaks = "8.30.1"`) and installed in CI via `jdx/mise-action`
-+ `mise exec`; semgrep runs via `uvx semgrep@1.167.0` (no dep, like zizmor). The
-semgrep rule is Python-only, so `tests/` is the effective target (`template/` is
-Jinja; there is no `src/`); gitleaks scans the whole tree + history regardless of
-language. Never pass semgrep `--config auto` (it drops the pinned rule and needs
-metrics on); never hardcode the gitleaks version in CI (install via `mise exec`).
++ `mise exec`; semgrep runs via `uvx semgrep@1.167.0` (no dep, like zizmor).
+semgrep scans non-test Python only — its built-in `.semgrepignore` excludes
+`tests/`, and there is no `src/`, so on this repo it currently scans **0 files**
+(it mirrors the shipped gate and fires if any non-test Python is added at root).
+gitleaks scans the whole tree + full history regardless of language, and is the
+substantive gate here. Never pass semgrep `--config auto` (it drops the pinned
+rule and needs metrics on); never hardcode the gitleaks version in CI (install
+via `mise exec`).
 
 Deliberate divergences from the template's `scan.yml`
 (`template/.github/workflows/…scan.yml….jinja`): the maintainer folds scanning
@@ -258,12 +273,14 @@ real historical secret or false positive would turn the PR red. Install the pin,
 then run both tools green before wiring CI:
 
 ```bash
-mise install gitleaks            # realize the new mise.toml pin
-just scan                        # semgrep (no-eval) + gitleaks full-history
+mise install gitleaks                    # realize the new mise.toml pin
+mise exec -- just scan                   # semgrep (no-eval) + gitleaks full-history
 ```
 
-Expected: semgrep `0 findings` / exit 0 (only `eval(` in `tests/` is a string
-literal); gitleaks `no leaks found` / exit 0.
+Expected: semgrep `Targets scanned: 0` / `0 findings` / exit 0 (`tests/` is
+semgrep-default-ignored and there is no `src/`); gitleaks `161 commits scanned` /
+`no leaks found` / exit 0. Run via `mise exec` so the recipe's bare `gitleaks`
+resolves in a non-mise-activated shell.
 
 Then confirm the tree is otherwise unchanged. No `test_generation.py` change is
 owed (root files, not `template/`). **No CHANGELOG `[Unreleased]` entry and no
@@ -283,6 +300,12 @@ releases discipline).
   Deferred there; covered in the interim by the AGENTS.md manual-sync note.
 - **Aggregate `just ci` (gap #3)** — if added later, keep `scan` off it (CI-only,
   like the template).
+- **Drop semgrep as not-applicable** — a defensible alternative: semgrep scans 0
+  files here, the same reasoning the audit used to skip mutmut/coverage (no
+  product code). Kept instead as a byte-parity forward guard to preserve the
+  single `enable_scanners` mirror; revisit at PR review if an inert gate is
+  unwanted (trivial reversal: delete `.semgrep.yml`, the semgrep recipe line, and
+  the CI semgrep step).
 
 ## Explicit no-touch (guard rails)
 
@@ -296,9 +319,10 @@ releases discipline).
 ## Endorsed decisions (verified in review — do not reopen)
 
 `.gitleaks.toml` / `.semgrep.yml` bytes match the template verbatim; SHA
-`e6a8b39…` is authentic `jdx/mise-action` v4.2.0; the semgrep AST pattern does
-not match the string-literal `eval(` in `test_generation.py`, so the scan is
-green today; `fetch-depth: 0` is required for the history scan; gitleaks-via-mise
+`e6a8b39…` is authentic `jdx/mise-action` v4.2.0; semgrep scans 0 files today
+(`tests/` default-ignored, no `src/`) so it is green vacuously — kept as a
+byte-parity forward guard; gitleaks scanned 161 commits clean; `fetch-depth: 0`
+is required for the history scan; gitleaks-via-mise
 and semgrep-via-uvx match the template's run mechanisms; `scan` off any aggregate
 mirrors the template; the maintainer shell activates mise so bare `gitleaks`
 resolves locally; the mirror is ROOT-only, so no generation test is owed.
