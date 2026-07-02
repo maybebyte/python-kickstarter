@@ -25,3 +25,13 @@ fmt:
 # CI's format gate: fail if anything is unformatted.
 fmt-check:
     uv run ruff format --check .
+
+# one-time: sync the venv and install the git hooks (maintainer is not copier-generated)
+setup:
+    uv sync
+    uv run pre-commit install
+
+# run every hook over the whole tree: commit-stage hooks, then pre-push basedpyright
+precommit:
+    uv run pre-commit run --all-files
+    uv run pre-commit run --all-files --hook-stage pre-push

@@ -27,6 +27,19 @@ just fmt-check   # ruff format --check . (CI's format gate)
 
 The maintainer harness runs the same full `select=["ALL"]` ruleset the template ships, scoped to `tests/` (the only Python surface; `template/` is Jinja). Every config-level ignore is load-bearing and audited — there are **no inline `# noqa`**. CI enforces `ruff check` + `ruff format --check` (the `lint` job in `.github/workflows/test-template.yml`).
 
+## Pre-commit
+
+```bash
+just setup      # one-time: sync the venv and install the git hooks
+just precommit  # run every hook (commit-stage + pre-push basedpyright) over the whole tree
+```
+
+`pre-commit install` registers both git hooks (`default_install_hook_types: [pre-commit, pre-push]`). On commit: ruff-check `--fix`, ruff-format, end-of-file-fixer / trailing-whitespace (both `exclude: '^template/'` — template Jinja whitespace is deliberate), check-merge-conflict, forbid-rej. On push: end-of-file-fixer and trailing-whitespace also run (they inherit a `pre-push` stage from the pinned `pre-commit-hooks` manifest, on any changed non-`template/` text file), plus basedpyright when the push includes a `*.py` file.
+
+This is a **local-only** gate: there is no pre-commit CI job, matching the template (whose downstream CI also never runs pre-commit). The ruff and basedpyright *substance* is enforced by the existing `lint` and `typecheck` CI jobs; the hygiene hooks (eof / trailing-whitespace / check-merge-conflict / forbid-rej) have **no** CI backstop and are a local convenience here. A bare `uv run pre-commit run --all-files` runs commit-stage hooks only — basedpyright fires on push or via `just typecheck`; `just precommit` runs both.
+
+Deliberate divergences from `template/.pre-commit-config.yaml.jinja`: ruff runs via local `uv run ruff` hooks (locked 0.15.19) instead of the `astral-sh/ruff-pre-commit` repo (pinned 0.15.18) — the venv is always synced here, so there is no bootstrap reason to keep the isolated-env repo hook; the pytest hook is dropped (the maintainer's only suite is the heavy generation matrix — CI-only). The two configs share the SHA-pinned `pre-commit-hooks` block: **bump both `rev:` pins together** (v6.0.0 = `3e8a8703…`).
+
 ## Add a guardrail layer
 
 1. Add an `enable_*` toggle to `copier.yml`.
