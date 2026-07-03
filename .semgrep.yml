@@ -1,0 +1,6 @@
+rules:
+  - id: no-eval
+    languages: [python]
+    severity: ERROR
+    message: Avoid eval(); it executes arbitrary code.
+    pattern: eval(...)

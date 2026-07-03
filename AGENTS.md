@@ -40,6 +40,18 @@ This is a **local-only** gate: there is no pre-commit CI job, matching the templ
 
 Deliberate divergences from `template/.pre-commit-config.yaml.jinja`: ruff runs via local `uv run ruff` hooks (locked 0.15.19) instead of the `astral-sh/ruff-pre-commit` repo (pinned 0.15.18) — the venv is always synced here, so there is no bootstrap reason to keep the isolated-env repo hook; the pytest hook is dropped (the maintainer's only suite is the heavy generation matrix — CI-only). The two configs share the SHA-pinned `pre-commit-hooks` block: **bump both `rev:` pins together** (v6.0.0 = `3e8a8703…`).
 
+## Scanning
+
+```bash
+just scan   # out-of-band secret + SAST scan: semgrep (no-eval) + gitleaks (full history)
+```
+
+`just scan` runs semgrep's `no-eval` rule and a gitleaks **full-history** secret scan (`.gitleaks.toml` = default ruleset). It is out-of-band (chained into no recipe), but CI enforces it: the `scan` job in `.github/workflows/test-template.yml` is a blocking PR gate. gitleaks is pinned in `mise.toml` (`gitleaks = "8.30.1"`) and installed in CI via `jdx/mise-action` + `mise exec`; semgrep runs via `uvx semgrep@1.167.0` (no dep, like zizmor). **semgrep scans non-test Python only** — its built-in `.semgrepignore` excludes `tests/`, and there is no `src/`, so on this repo it currently scans **0 files** (a forward guard that mirrors the shipped gate and fires the moment any non-test Python is added at root); gitleaks scans the whole tree + full history regardless of language and is the substantive gate here. Never pass semgrep `--config auto` (it drops the pinned rule and needs metrics on); never hardcode the gitleaks version in CI (install via `mise exec`).
+
+Deliberate divergences from the template's `scan.yml` (`template/.github/workflows/…scan.yml….jinja`): the maintainer folds scanning into the existing `test-template.yml` as a sibling `scan` job (the template consolidates into a standalone `scan.yml`), matching the one-workflow / per-tool layout and letting the existing zizmor job audit it; zizmor stays its own job here rather than a step in `scan` (already dogfooded standalone). The CI `mise-action` comment drops the template's "kept fresh by Renovate" note — **the maintainer has no Renovate**, so the pins are static.
+
+Because nothing here re-derives the pins (no Renovate; the generation drift test reads only the *rendered* downstream), **bump every literal site by hand, against the template.** gitleaks (`8.30.1`) has two maintainer sites — `mise.toml` and the prose above — synced to `template/mise.toml.jinja` (CI installs via `mise exec`, so there is no third gitleaks literal). semgrep (`1.167.0`) has three — the `just scan` recipe, the `scan` job in `test-template.yml`, and the prose above — synced to `template/justfile.jinja` and the template `scan.yml`. (Mirrors the pre-commit "bump both `rev:` pins together" obligation.)
+
 ## Add a guardrail layer
 
 1. Add an `enable_*` toggle to `copier.yml`.
