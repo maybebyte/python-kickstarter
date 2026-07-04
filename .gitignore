@@ -11,3 +11,6 @@ dist/
 # Agent worktrees/state. Nested git repos here also break `vcs_ref="HEAD"` renders
 # (copier's `git add -A` stages them as phantom submodules → exit 128).
 /.claude/
+
+# pip-audit's temp export (`just audit`); rm'd on success, gitignored so a failed run leaves a clean tree.
+requirements-audit.txt
