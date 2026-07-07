@@ -100,6 +100,10 @@ jobs:
         with:
           version: "0.11.23"
           enable-cache: true
+      - name: pip-audit
+        run: |
+          uv export --frozen --no-emit-project --no-hashes -o requirements-audit.txt
+          uvx pip-audit@2.10.1 -r requirements-audit.txt
       - name: semgrep
         run: uvx semgrep@1.167.0 scan --config .semgrep.yml --metrics=off --error .
       # gitleaks is installed from the mise.toml pin (single source of truth);

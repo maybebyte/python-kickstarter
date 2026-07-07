@@ -41,3 +41,12 @@ scan:
     uvx semgrep@1.167.0 scan --config .semgrep.yml --metrics=off --error .
     # `git` (not `dir`): scan committed history like CI, catching secrets committed then deleted.
     gitleaks git . --redact --exit-code 1
+
+# Out-of-band dependency vulnerability audit: pip-audit over the FULL locked graph.
+# `--no-dev` is dropped (unlike the template): package=false puts every dep in the
+# dev group, so the template's --no-dev would export 0 packages and pass vacuously.
+# Enforced in CI by the `scan` job, not a `ci` recipe (there is none).
+audit:
+    uv export --frozen --no-emit-project --no-hashes -o requirements-audit.txt
+    uvx pip-audit@2.10.1 -r requirements-audit.txt
+    rm -f requirements-audit.txt

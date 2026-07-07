@@ -52,6 +52,18 @@ Deliberate divergences from the template's `scan.yml` (`template/.github/workflo
 
 Because nothing here re-derives the pins (no Renovate; the generation drift test reads only the *rendered* downstream), **bump every literal site by hand, against the template.** gitleaks (`8.30.1`) has two maintainer sites — `mise.toml` and the prose above — synced to `template/mise.toml.jinja` (CI installs via `mise exec`, so there is no third gitleaks literal). semgrep (`1.167.0`) has three — the `just scan` recipe, the `scan` job in `test-template.yml`, and the prose above — synced to `template/justfile.jinja` and the template `scan.yml`. (Mirrors the pre-commit "bump both `rev:` pins together" obligation.)
 
+## Dependency audit
+
+```bash
+just audit   # out-of-band dependency vulnerability audit: pip-audit over the full locked graph
+```
+
+`just audit` exports the fully-resolved lockfile (`uv export --frozen --no-emit-project --no-hashes -o requirements-audit.txt`) and runs `uvx pip-audit@2.10.1 -r requirements-audit.txt`. It is out-of-band (chained into no recipe), but CI enforces it: the `pip-audit` step in the `scan` job of `.github/workflows/test-template.yml` is a blocking PR gate. Unlike semgrep — which scans 0 files here — pip-audit is the **substantive** dependency gate: it audits the real ~35-package dev+transitive graph (copier / pytest / ruff / basedpyright / pre-commit / plumbum / pyyaml + transitives), because **`--no-dev` is dropped**. Never restore `--no-dev`: `package = false` puts every dep in the dev group, so `--no-dev` would export 0 packages and pass vacuously. `requirements-audit.txt` is `rm`'d on success, gitignored, and lingers (harmlessly) only after a failed run. pip-audit is the one **non-hermetic** step in the `scan` job — it queries the OSV/PyPI advisory DB, so this gate can turn red on a newly-published CVE (or an advisory-DB outage) independent of any code change; a `--frozen` **export** failure instead means `uv.lock` is stale (re-lock), distinct from a pip-audit non-zero (a CVE). pip-audit runs via `uvx` (no pyproject dep, like semgrep/zizmor).
+
+Deliberate divergences from the template's dependency-audit layer: `--no-dev` is dropped (above); pip-audit runs via `uvx pip-audit@2.10.1` in both the recipe and CI with **no** pyproject dep (the template adds `pip-audit>=2.10` to its dev group and runs `uv run pip-audit` locally); it is folded into `test-template.yml`'s `scan` job as a step (the template ships it in a standalone `scan.yml`); and it is out-of-band, not a `just ci` dependency (the template makes `audit` gating — the maintainer has no `ci` recipe).
+
+Because nothing here re-derives the pin (no Renovate; the generation drift test reads only the *rendered* downstream), **bump every literal by hand, against the template.** pip-audit (`2.10.1`) has three maintainer sites — the `just audit` recipe, the `pip-audit` step in `test-template.yml`, and the prose above — synced to `template/.github/workflows/…scan.yml….jinja` (the only exact-version template site; the template justfile uses unpinned `uv run pip-audit` and template pyproject floors `pip-audit>=2.10`). No `mise.toml` or `pyproject.toml` pip-audit literal exists (uvx-run, unlike gitleaks). **Sync only the pin *value* — never the export flags:** the template's `uv export` keeps `--no-dev`, but the maintainer must not (it exports 0 packages here — see above), so a mechanical sync against the template would silently neuter the gate. (Mirrors the semgrep/gitleaks pin-sync note and the pre-commit "bump both `rev:` pins together" rule.)
+
 ## Add a guardrail layer
 
 1. Add an `enable_*` toggle to `copier.yml`.
