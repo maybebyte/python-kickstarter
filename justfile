@@ -3,6 +3,16 @@ set shell := ["bash", "-eu", "-o", "pipefail", "-c"]
 default:
     @just --list
 
+# The complete local gate — every PR-blocking check, reproducible locally.
+# Mirrors template/justfile.jinja's `ci` (audit is a member — the template chains it,
+# and audit is itself a PR-blocking check here via the CI `scan` job's pip-audit step).
+# `test` is the full generation matrix: give it a roomy TMPDIR (the default 4G tmpfs
+# /tmp can overflow) — see "Run every gate" in AGENTS.md. Scanners stay CI-only (off `ci`).
+ci: fmt-check lint typecheck test audit
+    @echo "ci: all gates passed"
+
+verify: ci
+
 # Run the template generation + update tests
 test:
     uv run pytest
@@ -42,10 +52,10 @@ scan:
     # `git` (not `dir`): scan committed history like CI, catching secrets committed then deleted.
     gitleaks git . --redact --exit-code 1
 
-# Out-of-band dependency vulnerability audit: pip-audit over the FULL locked graph.
+# Dependency vulnerability audit: pip-audit over the FULL locked graph.
 # `--no-dev` is dropped (unlike the template): package=false puts every dep in the
 # dev group, so the template's --no-dev would export 0 packages and pass vacuously.
-# Enforced in CI by the `scan` job, not a `ci` recipe (there is none).
+# Chained into `just ci` (mirrors the template) and independently enforced in CI by the `scan` job's pip-audit step.
 audit:
     uv export --frozen --no-emit-project --no-hashes -o requirements-audit.txt
     uvx pip-audit@2.10.1 -r requirements-audit.txt
