@@ -20,7 +20,9 @@ test:
 
 # Policy gate: pins the gate config literals (type mode, failOnWarnings, ruff select, Action
 # SHAs) so they cannot be silently weakened — not the ignore lists or the recipe bodies.
-# Stdlib-only; also auto-collected by `just test`. Mirrors template/justfile.jinja's `policy`.
+# Stdlib-only; also auto-collected by `just test`. Mirrors template/justfile.jinja's `policy`,
+# except `--no-cov` is dropped: there is no pytest-cov here, so the template's flag would be
+# an unrecognized argument. Never restore it from a mechanical template sync.
 policy:
     uv run pytest tests/policy
 
