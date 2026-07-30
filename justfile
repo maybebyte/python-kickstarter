@@ -4,11 +4,12 @@ default:
     @just --list
 
 # The complete local gate — every PR-blocking check, reproducible locally.
-# Mirrors template/justfile.jinja's `ci` (audit is a member — the template chains it,
-# and audit is itself a PR-blocking check here via the CI `scan` job's pip-audit step).
+# Mirrors template/justfile.jinja's `ci` (policy + audit are members — the template chains
+# both; each is also an independent PR-blocking check here — policy via the CI `test` job's
+# pytest collection, audit via the CI `scan` job's pip-audit step).
 # `test` is the full generation matrix: give it a roomy TMPDIR (the default 4G tmpfs
 # /tmp can overflow) — see "Run every gate" in AGENTS.md. Scanners stay CI-only (off `ci`).
-ci: fmt-check lint typecheck test audit
+ci: fmt-check lint typecheck test policy audit
     @echo "ci: all gates passed"
 
 verify: ci
@@ -16,6 +17,14 @@ verify: ci
 # Run the template generation + update tests
 test:
     uv run pytest
+
+# Policy gate: pins the gate config literals (type mode, failOnWarnings, ruff select, Action
+# SHAs) so they cannot be silently weakened — not the ignore lists or the recipe bodies.
+# Stdlib-only; also auto-collected by `just test`. Mirrors template/justfile.jinja's `policy`,
+# except `--no-cov` is dropped: there is no pytest-cov here, so the template's flag would be
+# an unrecognized argument. Never restore it from a mechanical template sync.
+policy:
+    uv run pytest tests/policy
 
 # Lint this repo's own tooling
 lint:
