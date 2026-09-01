@@ -7,12 +7,11 @@ import re
 import tomllib
 from typing import TYPE_CHECKING, NotRequired, TypedDict, cast
 
-import copier
 import pytest
 import yaml
 from plumbum import local
 
-from tests.conftest import RenderFn, run_in, without_interpreter_pins
+from tests.conftest import RenderFn, git_global_config, run_in
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -302,19 +301,12 @@ def test_precommit_config_valid(render: RenderFn, tmp_path: Path) -> None:
     _ = run_in(project, "uv", "run", "pre-commit", "run", "--all-files")
 
 
-def test_precommit_install_task_runs(template_root: Path, tmp_path: Path) -> None:
+def test_precommit_install_task_runs(render: RenderFn, tmp_path: Path) -> None:
     """The copy-only hook-install task fires when the hidden flag is left at default."""
-    dst = tmp_path / "installed"
-    with without_interpreter_pins():
-        _ = copier.run_copy(
-            str(template_root),
-            str(dst),
-            data={**MINIMAL, "enable_precommit_install": True},
-            defaults=True,
-            unsafe=True,
-            overwrite=True,
-            quiet=True,
-        )
+    # A global core.hooksPath makes pre-commit refuse to install, so the machine's git
+    # config must not leak in.
+    with git_global_config(tmp_path / "gitconfig"):
+        dst = render({**MINIMAL, "enable_precommit_install": True}, tmp_path / "installed")
     assert (dst / ".git" / "hooks" / "pre-commit").exists()
     assert (dst / ".git" / "hooks" / "pre-push").exists()
 

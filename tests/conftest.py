@@ -74,6 +74,29 @@ def without_interpreter_pins() -> Generator[None]:
         _restore_pins(saved_os, saved_pl)
 
 
+@contextlib.contextmanager
+def git_global_config(path: Path, *, hooks_path: Path | None = None) -> Generator[None]:
+    """Point git's global config at a throwaway file for the duration.
+
+    Carries an identity (copier commits a dirty HEAD template with it) and, when
+    `hooks_path` is given, `core.hooksPath` -- the setting pre-commit refuses to install
+    under. Set in os.environ AND plumbum's local.env (copier's git + task channel), so a
+    render behaves the same on a machine with or without a global core.hooksPath.
+    """
+    lines = ["[user]", "\tname = Test", "\temail = test@example.com"]
+    if hooks_path is not None:
+        lines += ["[core]", f"\thooksPath = {hooks_path}"]
+    _ = path.write_text("\n".join(lines) + "\n")
+    saved_os = os.environ.get("GIT_CONFIG_GLOBAL")
+    saved_pl = local.env.get("GIT_CONFIG_GLOBAL")
+    os.environ["GIT_CONFIG_GLOBAL"] = str(path)
+    local.env["GIT_CONFIG_GLOBAL"] = str(path)
+    try:
+        yield
+    finally:
+        _restore_pins({"GIT_CONFIG_GLOBAL": saved_os}, {"GIT_CONFIG_GLOBAL": saved_pl})
+
+
 def _missing_tools() -> list[str]:
     return [t for t in REQUIRED_TOOLS if shutil.which(t) is None]
 
