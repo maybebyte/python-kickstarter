@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The copy-time hook install no longer aborts (and rolls back) the whole copy when
+  git's `core.hooksPath` is set; pre-commit refuses to install under it, so the task
+  skips with a hint on stderr instead.
 - The generated `.gitignore` ignores pytest-cov's `.coverage` data file alongside
   `coverage.xml`.
 

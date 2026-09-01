@@ -16,6 +16,8 @@ To update a downstream project after a new template release:
 copier update --trust
 ```
 
+Hooks are installed on copy unless git's `core.hooksPath` is set (pre-commit refuses to install under it); the copy then skips that step with a hint instead of failing.
+
 ## Toggles
 
 All toggles default to `true` — every guardrail layer ships unless you opt out.

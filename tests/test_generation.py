@@ -311,6 +311,25 @@ def test_precommit_install_task_runs(render: RenderFn, tmp_path: Path) -> None:
     assert (dst / ".git" / "hooks" / "pre-push").exists()
 
 
+def test_precommit_install_skipped_when_hookspath_set(
+    render: RenderFn, tmp_path: Path, capfd: pytest.CaptureFixture[str]
+) -> None:
+    """A global core.hooksPath must not abort the copy: the install task skips with a hint.
+
+    pre-commit refuses to install hooks while core.hooksPath is set (any scope), and a
+    failing _task makes copier roll the whole copy back. The task guards on the setting
+    instead, so the render succeeds hook-less and says why on stderr.
+    """
+    hooks = tmp_path / "hooks"
+    hooks.mkdir()
+    with git_global_config(tmp_path / "gitconfig", hooks_path=hooks):
+        project = render({**MINIMAL, "enable_precommit_install": True}, tmp_path / "out")
+    assert (project / "uv.lock").is_file()
+    assert not (project / ".git" / "hooks" / "pre-commit").exists()
+    assert not (hooks / "pre-commit").exists()
+    assert "core.hooksPath" in capfd.readouterr().err
+
+
 def test_property_layer(render: RenderFn, tmp_path: Path) -> None:
     on = render({**MINIMAL, "enable_property_tests": True}, tmp_path / "on")
     assert (on / "tests" / "property" / "test_example_property.py").is_file()

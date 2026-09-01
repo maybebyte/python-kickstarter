@@ -34,7 +34,14 @@ _tasks:
     when: "{{ _copier_operation == 'copy' }}"
   - command: uv sync
     when: "{{ _copier_operation == 'copy' }}"
-  - command: uv run pre-commit install --install-hooks
+  # pre-commit refuses to install while core.hooksPath is set (any scope), and a failing
+  # task rolls the whole copy back — skip with a hint on stderr instead.
+  - command: |
+      if git config --get core.hooksPath >/dev/null; then
+        echo "core.hooksPath is set: skipping 'pre-commit install'. Run 'uv run pre-commit install --install-hooks' yourself once it is unset, or dispatch pre-commit from your global hooks." >&2
+      else
+        uv run pre-commit install --install-hooks
+      fi
     when: "{{ _copier_operation == 'copy' and enable_precommit_install }}"
 
 # _migrations run ONLY on update (never copy), version-gated to the release that
