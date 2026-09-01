@@ -96,6 +96,7 @@ def test_minimal_renders(render: RenderFn, tmp_path: Path) -> None:
     assert "toml" not in editorconfig
     gitignore = (project / ".gitignore").read_text()
     assert "coverage.xml" in gitignore
+    assert ".coverage" in gitignore
     assert "requirements-audit.txt" in gitignore
     assert (project / "tests" / "conftest.py").is_file()
 

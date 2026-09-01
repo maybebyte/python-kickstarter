@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- The generated `.gitignore` ignores pytest-cov's `.coverage` data file alongside
+  `coverage.xml`.
+
 ## [0.1.1] - 2026-08-04
 
 ### Changed
