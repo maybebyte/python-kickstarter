@@ -21,6 +21,12 @@ _exclude:
 
 _message_after_copy: |
   "{{ project_name }}" is ready.
+  {% if in_existing_repo -%}
+  Rendered inside an existing repository: no git init, no hook install, and the
+  root-only files were not rendered (.github/workflows/*.yml, .pre-commit-config.yaml,
+  renovate.json). Recreate them at the repository root by hand if you want CI, hooks,
+  or Renovate for this subproject; the workflows need a working-directory for it.
+  {% endif -%}
   Next:
     cd {{ _copier_conf.dst_path }}
     just ci      # everything should be green
@@ -28,8 +34,16 @@ _message_after_copy: |
 # Run once on initial copy only (guarded by _copier_operation, requires Copier >= 9.6).
 # These are UNSAFE features: `copier copy --trust` / `copier update --trust` required.
 _tasks:
-  - command: git init --quiet
-    when: "{{ _copier_operation == 'copy' }}"
+  # Fail closed when the destination sits inside another repository's work tree: a bare
+  # `git init` there silently nests a repo. Copier's documented `git init && copier copy … .`
+  # pattern still passes (the toplevel IS the destination). in_existing_repo=true skips this.
+  - command: |
+      if git rev-parse --is-inside-work-tree >/dev/null 2>&1 && [ "$(git rev-parse --show-toplevel)" != "$(pwd -P)" ]; then
+        echo "$(pwd) is inside an existing git repository; re-run with --data in_existing_repo=true" >&2
+        exit 1
+      fi
+      git init --quiet
+    when: "{{ _copier_operation == 'copy' and not in_existing_repo }}"
   - command: uv lock
     when: "{{ _copier_operation == 'copy' }}"
   - command: uv sync
@@ -42,7 +56,7 @@ _tasks:
       else
         uv run pre-commit install --install-hooks
       fi
-    when: "{{ _copier_operation == 'copy' and enable_precommit_install }}"
+    when: "{{ _copier_operation == 'copy' and enable_precommit_install and not in_existing_repo }}"
 
 # _migrations run ONLY on update (never copy), version-gated to the release that
 # introduced a breaking rename/restructure (they run when new >= declared > old).
@@ -140,6 +154,16 @@ project_type:
   choices:
     library: library
     application: application
+
+# ---- Layout -----------------------------------------------------------------
+# Scaffold into a subdirectory of an existing repository: no `git init`, no hook install,
+# and the root-only files (.github/, .pre-commit-config.yaml, renovate.json) are not
+# rendered — GitHub and Renovate read them only at the repository root, so they would be
+# inert there, and every local deletion becomes a `copier update` conflict later.
+in_existing_repo:
+  type: bool
+  default: false
+  help: Scaffold into a subdirectory of an existing git repository? (skips git init and hook install; omits .github/, .pre-commit-config.yaml and renovate.json for you to recreate at the repo root)
 
 # ---- Guardrail toggles / tuning ---------------------------------------------
 ruff_ruleset:
