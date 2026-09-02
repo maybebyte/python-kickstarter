@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `in_existing_repo` answer (default `false`): scaffold into a subdirectory of an
+  existing git repository. Skips `git init` and the hook install, and omits the
+  root-only files GitHub and Renovate read only at the repository root
+  (`.github/workflows/*.yml`, `.pre-commit-config.yaml`, `renovate.json`), with an
+  after-copy note listing what to recreate there. Copying into a subdirectory of a
+  repository without it now aborts instead of silently creating a nested repository.
+
+### Fixed
+
+- The copy-time hook install no longer aborts (and rolls back) the whole copy when
+  git's `core.hooksPath` is set; pre-commit refuses to install under it, so the task
+  skips with a hint on stderr instead.
+- The generated `.gitignore` ignores pytest-cov's `.coverage` data file alongside
+  `coverage.xml`.
+
 ## [0.1.1] - 2026-08-04
 
 ### Changed

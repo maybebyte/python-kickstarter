@@ -7,12 +7,12 @@ import re
 import tomllib
 from typing import TYPE_CHECKING, NotRequired, TypedDict, cast
 
-import copier
 import pytest
 import yaml
+from copier.errors import TaskError
 from plumbum import local
 
-from tests.conftest import RenderFn, run_in, without_interpreter_pins
+from tests.conftest import RenderFn, git_global_config, run_in
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -96,6 +96,7 @@ def test_minimal_renders(render: RenderFn, tmp_path: Path) -> None:
     assert "toml" not in editorconfig
     gitignore = (project / ".gitignore").read_text()
     assert "coverage.xml" in gitignore
+    assert ".coverage" in gitignore
     assert "requirements-audit.txt" in gitignore
     assert (project / "tests" / "conftest.py").is_file()
 
@@ -301,21 +302,78 @@ def test_precommit_config_valid(render: RenderFn, tmp_path: Path) -> None:
     _ = run_in(project, "uv", "run", "pre-commit", "run", "--all-files")
 
 
-def test_precommit_install_task_runs(template_root: Path, tmp_path: Path) -> None:
+def test_precommit_install_task_runs(render: RenderFn, tmp_path: Path) -> None:
     """The copy-only hook-install task fires when the hidden flag is left at default."""
-    dst = tmp_path / "installed"
-    with without_interpreter_pins():
-        _ = copier.run_copy(
-            str(template_root),
-            str(dst),
-            data={**MINIMAL, "enable_precommit_install": True},
-            defaults=True,
-            unsafe=True,
-            overwrite=True,
-            quiet=True,
-        )
+    # A global core.hooksPath makes pre-commit refuse to install (see the skip test
+    # below), so the machine's git config must not leak in.
+    with git_global_config(tmp_path / "gitconfig"):
+        dst = render({**MINIMAL, "enable_precommit_install": True}, tmp_path / "installed")
     assert (dst / ".git" / "hooks" / "pre-commit").exists()
     assert (dst / ".git" / "hooks" / "pre-push").exists()
+
+
+def test_precommit_install_skipped_when_hookspath_set(
+    render: RenderFn, tmp_path: Path, capfd: pytest.CaptureFixture[str]
+) -> None:
+    """A global core.hooksPath must not abort the copy: the install task skips with a hint.
+
+    pre-commit refuses to install hooks while core.hooksPath is set (any scope), and a
+    failing _task makes copier roll the whole copy back. The task guards on the setting
+    instead, so the render succeeds hook-less and says why on stderr.
+    """
+    hooks = tmp_path / "hooks"
+    hooks.mkdir()
+    with git_global_config(tmp_path / "gitconfig", hooks_path=hooks):
+        project = render({**MINIMAL, "enable_precommit_install": True}, tmp_path / "out")
+    assert (project / "uv.lock").is_file()
+    assert not (project / ".git" / "hooks" / "pre-commit").exists()
+    assert not (hooks / "pre-commit").exists()
+    assert "core.hooksPath" in capfd.readouterr().err
+
+
+def test_existing_repo_layer(render: RenderFn, tmp_path: Path) -> None:
+    """in_existing_repo renders a hook-less, CI-less subproject inside a parent repo.
+
+    No nested `.git`, no hook installed into the parent, and the root-only files
+    (.github/, .pre-commit-config.yaml, renovate.json) are omitted: GitHub and Renovate
+    read them only at the repository root, so rendering them would leave inert files
+    whose local deletion conflicts on every later `copier update`.
+    """
+    parent = tmp_path / "parent"
+    parent.mkdir()
+    _ = run_in(parent, "git", "init", "--quiet")
+    sub = render(
+        {
+            **MINIMAL,
+            "enable_renovate": True,
+            "enable_precommit_install": True,
+            "in_existing_repo": True,
+        },
+        parent / "sub",
+    )
+    assert not (sub / ".git").exists()
+    assert not (parent / ".git" / "hooks" / "pre-commit").exists()
+    for omitted in (".github", ".pre-commit-config.yaml", "renovate.json"):
+        assert not (sub / omitted).exists()
+    assert (sub / "uv.lock").is_file()
+    # The rendered project's own gate is still green from a subdirectory.
+    _ = run_in(sub, "just", "ci")
+
+
+def test_nested_destination_without_flag_fails_closed(render: RenderFn, tmp_path: Path) -> None:
+    """Copying into a subdirectory of a repo without in_existing_repo aborts, not nests.
+
+    A bare `git init` there would silently create a nested repository (the original
+    dogfood finding); the init task detects the enclosing work tree and fails with the
+    fix in its message, so copier rolls the copy back instead.
+    """
+    parent = tmp_path / "parent"
+    parent.mkdir()
+    _ = run_in(parent, "git", "init", "--quiet")
+    with pytest.raises(TaskError, match="git init"):
+        _ = render(MINIMAL, parent / "sub")
+    # copier created `sub`, so cleanup_on_error removed it again.
+    assert not (parent / "sub").exists()
 
 
 def test_property_layer(render: RenderFn, tmp_path: Path) -> None:

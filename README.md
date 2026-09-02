@@ -16,6 +16,18 @@ To update a downstream project after a new template release:
 copier update --trust
 ```
 
+Hooks are installed on copy unless git's `core.hooksPath` is set (pre-commit refuses to install under it); the copy then skips that step with a hint instead of failing.
+
+### Scaffolding into an existing repository
+
+To render the project as a subdirectory of a repository you already have, answer `in_existing_repo` with yes (or pass it as data):
+
+```bash
+copier copy --trust --data in_existing_repo=true gh:maybebyte/python-kickstarter ./subdir
+```
+
+This skips `git init` and the hook install, and does not render the root-only files GitHub and Renovate read only at the repository root: `.github/workflows/*.yml`, `.pre-commit-config.yaml`, and `renovate.json`. Recreate them at the root by hand if you want CI, hooks, or Renovate for the subproject (the workflows need a `working-directory`). Without the answer, copying into a subdirectory of a repository aborts rather than silently creating a nested one.
+
 ## Toggles
 
 All toggles default to `true` — every guardrail layer ships unless you opt out.
