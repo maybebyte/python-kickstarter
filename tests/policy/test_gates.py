@@ -34,6 +34,21 @@ def test_agents_md_recipes_exist_in_justfile() -> None:
     assert referenced <= recipes, f"AGENTS.md names missing recipes: {referenced - recipes}"
 
 
+def test_gitleaks_pin_matches_template() -> None:
+    """The one Renovate-managed literal AGENTS.md requires hand-synced to the template.
+
+    Renovate bumps only the maintainer's mise.toml; it cannot see the template's
+    .jinja copy or the AGENTS.md prose, so a bump PR stays red until both follow.
+    """
+    pin = re.compile(r'^gitleaks = "(\d+\.\d+\.\d+)"$', re.MULTILINE)
+    ours = pin.search((ROOT / "mise.toml").read_text())
+    theirs = pin.search((ROOT / "template" / "mise.toml.jinja").read_text())
+    assert ours is not None
+    assert theirs is not None
+    assert ours.group(1) == theirs.group(1)
+    assert f"gitleaks (`{ours.group(1)}`)" in (ROOT / "AGENTS.md").read_text()
+
+
 def test_actions_are_sha_pinned() -> None:
     """Every third-party `uses:` is a 40-char SHA + a v-prefixed version comment."""
     # SHA + a version comment (v<major>[.minor[.patch]]); our pins carry the action's

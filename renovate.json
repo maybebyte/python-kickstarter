@@ -1,0 +1,13 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
+  "lockFileMaintenance": { "enabled": true, "schedule": ["before 4am on monday"] },
+  "pre-commit": { "enabled": false },
+  "packageRules": [
+    {
+      "description": "uv is pinned in mise.toml AND every setup-uv version: input in test-template.yml, with no maintainer-side test asserting they agree. Renovate sees both (mise depName 'uv'; github-actions depName 'astral-sh/uv') but would bump them in separate PRs. Match on the shared packageName so BOTH are disabled — matchDepNames: ['uv'] would silence only the mise side. Bump uv manually across all six sites instead.",
+      "matchPackageNames": ["astral-sh/uv"],
+      "enabled": false
+    }
+  ]
+}
