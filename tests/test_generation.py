@@ -15,6 +15,7 @@ from plumbum import local
 from tests.conftest import RenderFn, git_global_config, run_in
 
 if TYPE_CHECKING:
+    import subprocess
     from pathlib import Path
 
 
@@ -57,6 +58,7 @@ MINIMAL = {
     "enable_dependency_audit": False,
     "enable_renovate": False,
     "enable_sha_pin_policy": False,
+    "enable_changelog": False,
 }
 
 FULL = {
@@ -70,6 +72,7 @@ FULL = {
     "enable_dependency_audit": True,
     "enable_renovate": True,
     "enable_sha_pin_policy": True,
+    "enable_changelog": True,
 }
 
 MATRIX = {
@@ -719,6 +722,67 @@ def test_rendered_workflows_pass_zizmor(render: RenderFn, tmp_path: Path) -> Non
         "--offline",
         ".github/workflows",
     )
+
+
+def test_changelog_layer(render: RenderFn, tmp_path: Path) -> None:
+    on = render({**MINIMAL, "enable_changelog": True}, tmp_path / "on")
+    assert "## [Unreleased]" in (on / "CHANGELOG.md").read_text()
+    workflow = (on / ".github" / "workflows" / "changelog.yml").read_text()
+    yaml.safe_load(workflow)  # valid YAML after the multi-line run block
+    # `types:` replaces the defaults, so all five are needed for a label change to re-run it.
+    assert "types: [opened, synchronize, reopened, labeled, unlabeled]" in workflow
+    assert "push:" not in workflow
+    # The label is honoured in the step (never a job-level `if:` — that reports "skipped").
+    assert "skip-changelog" in workflow
+    assert not re.search(r"^\s*if:", workflow, re.MULTILINE)
+    # zizmor: the base ref reaches the script via env, never inline in `run:`.
+    assert "BASE_REF: ${{ github.base_ref }}" in workflow
+    assert "timeout-minutes:" in workflow
+    assert "concurrency:" in workflow
+    assert "## Changelog" in (on / "AGENTS.md").read_text()
+    off = render(MINIMAL, tmp_path / "off")
+    assert not (off / "CHANGELOG.md").exists()
+    assert not (off / ".github" / "workflows" / "changelog.yml").exists()
+    assert "CHANGELOG" not in (off / "AGENTS.md").read_text()
+
+
+def test_changelog_check_blocks_and_passes(render: RenderFn, tmp_path: Path) -> None:
+    """The shipped changelog.yml script blocks a src change with no entry, passes otherwise.
+
+    Runs the workflow's `run:` block against a clone whose `origin/main` plays the PR base,
+    the same ref a full-history checkout gives CI — it proves the diff logic, not just that
+    the file rendered.
+    """
+    project = render({**MINIMAL, "enable_changelog": True}, tmp_path / "out")
+    workflow = cast(
+        "_CiWorkflow",
+        yaml.safe_load((project / ".github" / "workflows" / "changelog.yml").read_text()),
+    )
+    script = next(s["run"] for s in workflow["jobs"]["changelog"]["steps"] if "run" in s)
+    with git_global_config(tmp_path / "gitconfig"):
+        _ = run_in(project, "git", "add", "-A")
+        _ = run_in(project, "git", "commit", "-q", "-m", "init")
+        _ = run_in(project, "git", "branch", "-M", "main")
+        clone = tmp_path / "clone"
+        _ = run_in(tmp_path, "git", "clone", "-q", str(project), str(clone))
+        _ = run_in(clone, "git", "switch", "-q", "-c", "feature")
+        _ = (clone / "src" / "demo_project" / "extra.py").write_text("X = 1\n")
+        _ = run_in(clone, "git", "add", "-A")
+        _ = run_in(clone, "git", "commit", "-q", "-m", "feat")
+
+        def check(*, skip: bool) -> subprocess.CompletedProcess[str]:
+            env = {"BASE_REF": "main", "SKIP": "true" if skip else "false"}
+            return run_in(clone, "bash", "-e", "-o", "pipefail", "-c", script, check=False, env=env)
+
+        blocked = check(skip=False)
+        assert blocked.returncode != 0
+        assert "CHANGELOG.md" in blocked.stdout
+        assert check(skip=True).returncode == 0
+        changelog = clone / "CHANGELOG.md"
+        _ = changelog.write_text(changelog.read_text() + "\n- Add `extra`.\n")
+        _ = run_in(clone, "git", "add", "-A")
+        _ = run_in(clone, "git", "commit", "-q", "-m", "docs")
+        assert check(skip=False).returncode == 0
 
 
 def test_apache_license_renders(render: RenderFn, tmp_path: Path) -> None:
