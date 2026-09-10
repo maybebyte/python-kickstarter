@@ -37,9 +37,14 @@ jobs:
             exit 0
           fi
           base="origin/$BASE_REF"
+          # Fail closed: an unresolvable base (a shallow checkout) must not pass vacuously.
+          git rev-parse --verify --quiet "$base" >/dev/null \
+            || { echo "::error::cannot resolve $base; the checkout needs fetch-depth: 0"; exit 1; }
+          # "An entry" means at least one non-empty added line — a deletion or a
+          # whitespace-only touch of CHANGELOG.md does not count.
           if [ -n "$(git diff --name-only "$base...HEAD" -- src pyproject.toml)" ] \
-             && [ -z "$(git diff --name-only "$base...HEAD" -- CHANGELOG.md)" ]; then
-            echo "::error::src/ or pyproject.toml changed without a CHANGELOG.md entry; add one under [Unreleased] or label the PR skip-changelog"
+             && [ -z "$(git diff -U0 "$base...HEAD" -- CHANGELOG.md | grep '^+[^+]')" ]; then
+            echo "::error::src/ or pyproject.toml changed without a new CHANGELOG.md line; add an entry under [Unreleased] or label the PR skip-changelog"
             exit 1
           fi
           echo "changelog: ok"

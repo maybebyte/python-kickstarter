@@ -349,6 +349,7 @@ def test_existing_repo_layer(render: RenderFn, tmp_path: Path) -> None:
         {
             **MINIMAL,
             "enable_renovate": True,
+            "enable_changelog": True,
             "enable_precommit_install": True,
             "in_existing_repo": True,
         },
@@ -358,6 +359,11 @@ def test_existing_repo_layer(render: RenderFn, tmp_path: Path) -> None:
     assert not (parent / ".git" / "hooks" / "pre-commit").exists()
     for omitted in (".github", ".pre-commit-config.yaml", "renovate.json"):
         assert not (sub / omitted).exists()
+    # The changelog itself is per-project and ships; only its root-only workflow is omitted,
+    # and nothing rendered may cite a CI file that does not exist.
+    assert (sub / "CHANGELOG.md").is_file()
+    assert "changelog.yml" not in (sub / "AGENTS.md").read_text()
+    assert "changelog.yml" not in (sub / "justfile").read_text()
     assert (sub / "uv.lock").is_file()
     # The rendered project's own gate is still green from a subdirectory.
     _ = run_in(sub, "just", "ci")
@@ -765,24 +771,46 @@ def test_changelog_check_blocks_and_passes(render: RenderFn, tmp_path: Path) -> 
         _ = run_in(project, "git", "branch", "-M", "main")
         clone = tmp_path / "clone"
         _ = run_in(tmp_path, "git", "clone", "-q", str(project), str(clone))
-        _ = run_in(clone, "git", "switch", "-q", "-c", "feature")
-        _ = (clone / "src" / "demo_project" / "extra.py").write_text("X = 1\n")
-        _ = run_in(clone, "git", "add", "-A")
-        _ = run_in(clone, "git", "commit", "-q", "-m", "feat")
+        changelog = clone / "CHANGELOG.md"
 
-        def check(*, skip: bool) -> subprocess.CompletedProcess[str]:
-            env = {"BASE_REF": "main", "SKIP": "true" if skip else "false"}
+        def commit_all(message: str) -> None:
+            _ = run_in(clone, "git", "add", "-A")
+            _ = run_in(clone, "git", "commit", "-q", "-m", message)
+
+        def check(*, skip: bool = False, base: str = "main") -> subprocess.CompletedProcess[str]:
+            env = {"BASE_REF": base, "SKIP": "true" if skip else "false"}
             return run_in(clone, "bash", "-e", "-o", "pipefail", "-c", script, check=False, env=env)
 
-        blocked = check(skip=False)
+        # A src change with no entry is blocked; the label or a real entry unblocks it.
+        _ = run_in(clone, "git", "switch", "-q", "-c", "feature")
+        _ = (clone / "src" / "demo_project" / "extra.py").write_text("X = 1\n")
+        commit_all("feat")
+        blocked = check()
         assert blocked.returncode != 0
         assert "CHANGELOG.md" in blocked.stdout
         assert check(skip=True).returncode == 0
-        changelog = clone / "CHANGELOG.md"
-        _ = changelog.write_text(changelog.read_text() + "\n- Add `extra`.\n")
-        _ = run_in(clone, "git", "add", "-A")
-        _ = run_in(clone, "git", "commit", "-q", "-m", "docs")
-        assert check(skip=False).returncode == 0
+        # Fail closed: an unresolvable base errors instead of passing vacuously.
+        unresolvable = check(base="nonexistent")
+        assert unresolvable.returncode != 0
+        assert "cannot resolve" in unresolvable.stdout
+        # A whitespace-only touch is not an entry; a real line is.
+        _ = changelog.write_text(changelog.read_text() + "\n")
+        commit_all("touch")
+        assert check().returncode != 0
+        _ = changelog.write_text(changelog.read_text() + "- Add `extra`.\n")
+        commit_all("docs")
+        assert check().returncode == 0
+        # Deleting the changelog is not an entry either.
+        _ = run_in(clone, "git", "switch", "-q", "-c", "deleter", "main")
+        _ = (clone / "src" / "demo_project" / "extra.py").write_text("X = 2\n")
+        _ = run_in(clone, "git", "rm", "-q", "CHANGELOG.md")
+        commit_all("rm")
+        assert check().returncode != 0
+        # Changes outside src/ and pyproject.toml need no entry (pins the pathspec).
+        _ = run_in(clone, "git", "switch", "-q", "-c", "docs-only", "main")
+        _ = (clone / "README.md").write_text("# Demo\n")
+        commit_all("readme")
+        assert check().returncode == 0
 
 
 def test_apache_license_renders(render: RenderFn, tmp_path: Path) -> None:
@@ -842,6 +870,7 @@ def test_all_toggles_on_passes_full_gate(render: RenderFn, tmp_path: Path) -> No
         "enable_dependency_audit": True,
         "enable_renovate": True,
         "enable_sha_pin_policy": True,
+        "enable_changelog": True,
     }
     project = render(full, tmp_path / "out")
 
