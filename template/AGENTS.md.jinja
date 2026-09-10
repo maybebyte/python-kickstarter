@@ -45,7 +45,7 @@ Put it in `tests/property/`. It MUST set `pytestmark = pytest.mark.property` and
 {% if enable_changelog %}
 ## Changelog
 
-A PR that changes `src/` or `pyproject.toml` must add an entry under `## [Unreleased]` in `CHANGELOG.md` (CI: `changelog.yml`), or carry the `skip-changelog` label (create it once: `gh label create skip-changelog`). Promote the entries under a version heading in each release commit.
+A PR that changes `src/` or `pyproject.toml` must add an entry under `## [Unreleased]` in `CHANGELOG.md`{% if not in_existing_repo %} (CI: `changelog.yml`), or carry the `skip-changelog` label (create it once: `gh label create skip-changelog`){% endif %}. Promote the entries under a version heading in each release commit.
 {% endif %}{% if enable_policy_tests %}
 ## Meta-guardrail
 

@@ -3,7 +3,7 @@ set shell := ["bash", "-eu", "-o", "pipefail", "-c"]
 default:
     @just --list
 
-# The complete local gate — every PR-blocking check reproducible locally{% if enable_scanners or enable_changelog %} (CI only:{% if enable_scanners %} scanners, see scan.yml{% endif %}{% if enable_scanners and enable_changelog %};{% endif %}{% if enable_changelog %} the changelog check, see changelog.yml{% endif %}){% endif %}.
+# The complete local gate — every PR-blocking check reproducible locally{% if not in_existing_repo and (enable_scanners or enable_changelog) %} (CI only:{% if enable_scanners %} scanners, see scan.yml{% endif %}{% if enable_scanners and enable_changelog %};{% endif %}{% if enable_changelog %} the changelog check, see changelog.yml{% endif %}){% endif %}.
 ci: fmt-check lint typecheck test{% if enable_property_tests %} fuzz{% endif %}{% if enable_policy_tests %} policy{% endif %}{% if enable_dependency_audit %} audit{% endif %}
     @echo "ci: all gates passed"
 
