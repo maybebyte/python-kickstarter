@@ -8,7 +8,8 @@ default:
 # both; each is also an independent PR-blocking check here — policy via the CI `test` job's
 # pytest collection, audit via the CI `scan` job's pip-audit step).
 # `test` is the full generation matrix: give it a roomy TMPDIR (the default 4G tmpfs
-# /tmp can overflow) — see "Run every gate" in AGENTS.md. Scanners stay CI-only (off `ci`).
+# /tmp can overflow) — see "Run every gate" in AGENTS.md. Scanners and the changelog check
+# stay CI-only (off `ci`).
 ci: fmt-check lint typecheck test policy audit
     @echo "ci: all gates passed"
 

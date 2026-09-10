@@ -8,7 +8,7 @@ This repo is a Copier template. `template/` holds the generated project as `.jin
 just ci   # fmt-check + lint + typecheck + test + policy + audit, then "ci: all gates passed"
 ```
 
-`just ci` is the complete local gate — `ci: fmt-check lint typecheck test policy audit` ending `@echo "ci: all gates passed"`, with `verify` a bare alias (`verify: ci`). It **mirrors** `template/justfile.jinja`'s `ci`: the template chains `policy` and `audit` when `enable_policy_tests`/`enable_dependency_audit` are on (they are), so the faithful maintainer recipe includes both. `test` is the heavy generation matrix, so `just ci` needs a roomy `TMPDIR` — the default 4G tmpfs `/tmp` can overflow (export e.g. `TMPDIR=/path/to/roomy/dir` first). The fast inner loop is `just fmt-check lint typecheck` (one invocation, no matrix, no network); there is deliberately **no** `check:` recipe (the template ships none). `audit` is non-hermetic (it queries the OSV/PyPI advisory DB), so `just ci` reaches the network exactly as `just audit` does; scanners (`just scan`) deliberately stay **off** `ci` (CI-only), matching the template.
+`just ci` is the complete local gate — `ci: fmt-check lint typecheck test policy audit` ending `@echo "ci: all gates passed"`, with `verify` a bare alias (`verify: ci`). It **mirrors** `template/justfile.jinja`'s `ci`: the template chains `policy` and `audit` when `enable_policy_tests`/`enable_dependency_audit` are on (they are), so the faithful maintainer recipe includes both. `test` is the heavy generation matrix, so `just ci` needs a roomy `TMPDIR` — the default 4G tmpfs `/tmp` can overflow (export e.g. `TMPDIR=/path/to/roomy/dir` first). The fast inner loop is `just fmt-check lint typecheck` (one invocation, no matrix, no network); there is deliberately **no** `check:` recipe (the template ships none). `audit` is non-hermetic (it queries the OSV/PyPI advisory DB), so `just ci` reaches the network exactly as `just audit` does; scanners (`just scan`) deliberately stay **off** `ci` (CI-only), matching the template, as does the changelog check (`changelog.yml`, no recipe — see "Changelog check").
 
 This maintainer `just ci` is distinct from the **downstream's** `just ci` referenced under "Run the tests": `just test` renders each project in the answer matrix and runs *its* `just ci` — a different, generated recipe.
 
@@ -88,6 +88,12 @@ Renovate sees only the maintainer's own files, never `template/*.jinja`. A gitle
 
 Deliberate divergences from the template's `renovate.json`: the `pre-commit` manager is off (above); the `uvx` regex `customManager` is omitted — the only maintainer `uvx` pins are parity-locked to the rendered template by the generation suite, so a one-sided bump would fail `just test`; and the `astral-sh/uv` rule is maintainer-only (the template ships no such rule; its rendered `uv` pin is equally multi-site, not addressed here).
 
+## Changelog check
+
+`.github/workflows/changelog.yml` fails a PR that changes `template/**` or `copier.yml` without also changing `CHANGELOG.md` (add an entry under `## [Unreleased]`), unless the PR carries the `skip-changelog` label (created once by hand: `gh label create skip-changelog`). It is CI-only (no recipe — a base-ref diff has no local form) and PR-only (no `push` trigger). Three mechanics are load-bearing: `types:` lists all five activity types because it *replaces* the defaults and a bare `pull_request` never re-runs on a label change; the label is honoured inside the step rather than a job-level `if:`, so the check reports pass, never "skipped" (a skipped required status blocks the merge); and `github.base_ref` reaches the script through `env:` (zizmor flags it inline in `run:` as template-injection). Maintainer CI changes (`.github/workflows/**`) need no entry — the CHANGELOG describes generated-project behaviour only — so Renovate's Action bumps pass untouched.
+
+This is the first Phase 2 (net-new) layer of the dogfooding audit: added to the template first (`enable_changelog`, shipped in v0.3.0), then dogfooded here in the same PR. Deliberate divergences from the template's `changelog.yml`: the trigger paths are `template/**` + `copier.yml` (the template's are `src/**` + `pyproject.toml`), and the Action pin is the maintainer's own (Renovate-managed — see "Renovate").
+
 ## Policy gate (`just policy`)
 
 ```bash
@@ -108,7 +114,7 @@ The SHA-pin sub-check overlaps the zizmor job (the security control), so its net
 
 1. Add an `enable_*` toggle to `copier.yml`.
 2. Add the conditional file(s) under `template/` (file: `{% if flag %}name{% endif %}.jinja`; dir: `{% if flag %}dir{% endif %}/`).
-3. Wire it into `template/justfile.jinja` (a recipe; add it as a `ci` dep only for a *gating* layer — out-of-band checks like `scan`/`mutate` ship a recipe but stay off `ci`, and CI-only layers like renovate/sha-pin add no recipe at all). Then, where applicable: a dep in `template/pyproject.toml.jinja` (skip it for `uvx`-run tools like the scanners), a section in `template/AGENTS.md.jinja`, and a CI surface under the template's `.github/workflows/` (a conditional step in `scan.yml`, or a dedicated conditional workflow file via the empty-name idiom). Root-only files — the `.github/` dir, `.pre-commit-config.yaml`, `renovate.json` — carry `not in_existing_repo` in their path condition (GitHub and Renovate read them only at a repository root); a new root-only file must too, and `test_existing_repo_layer`'s omission list grows with it.
+3. Wire it into `template/justfile.jinja` (a recipe; add it as a `ci` dep only for a *gating* layer — out-of-band checks like `scan`/`mutate` ship a recipe but stay off `ci`, and CI-only layers like renovate/sha-pin/changelog add no recipe at all). Then, where applicable: a dep in `template/pyproject.toml.jinja` (skip it for `uvx`-run tools like the scanners), a section in `template/AGENTS.md.jinja`, and a CI surface under the template's `.github/workflows/` (a conditional step in `scan.yml`, or a dedicated conditional workflow file via the empty-name idiom). Root-only files — the `.github/` dir, `.pre-commit-config.yaml`, `renovate.json` — carry `not in_existing_repo` in their path condition (GitHub and Renovate read them only at a repository root); a new root-only file must too, and `test_existing_repo_layer`'s omission list grows with it.
 4. Extend `tests/test_generation.py`: assert present-when-on AND absent-when-off, and that the layer's gate passes.
 
 ## Release
@@ -121,7 +127,7 @@ git push origin v0.1.0
 git describe --tags             # verify a reachable tag now exists (must succeed)
 ```
 
-Update `CHANGELOG.md` (promote the `Unreleased` entries under the new version) in the release commit before tagging.
+Update `CHANGELOG.md` (promote the `Unreleased` entries under the new version) in the release commit before tagging; the changelog check (see "Changelog check") guarantees every template-touching PR already added its entry.
 
 Breaking renames/moves need a version-gated `_migrations` entry.
 
