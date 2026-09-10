@@ -41,8 +41,9 @@ All toggles default to `true` — every guardrail layer ships unless you opt out
 | `enable_dependency_audit` | pip-audit recipe (`just audit`) |
 | `enable_renovate` | Renovate bot config |
 | `enable_sha_pin_policy` | zizmor workflow audit in CI, plus a CI policy test asserting all Action SHAs are pinned — the policy test requires `enable_policy_tests` (only the zizmor audit ships otherwise) |
+| `enable_changelog` | `CHANGELOG.md` plus a PR-only `changelog.yml` check: a PR that touches `src/` or `pyproject.toml` must also add a line to `CHANGELOG.md`, or carry the `skip-changelog` label |
 
-Beyond the local recipes, several toggles also emit GitHub Actions workflows: `enable_scanners`, `enable_dependency_audit`, and `enable_sha_pin_policy` each contribute steps to a generated `scan.yml` (semgrep + gitleaks, pip-audit, and zizmor respectively), and `enable_mutation_tests` emits a scheduled `mutation.yml`. The always-on `ci.yml` runs the `just ci` gate on a Python-version matrix covering every interpreter at or above the project's `requires-python` floor (a single leg for the `3.13` default).
+Beyond the local recipes, several toggles also emit GitHub Actions workflows: `enable_scanners`, `enable_dependency_audit`, and `enable_sha_pin_policy` each contribute steps to a generated `scan.yml` (semgrep + gitleaks, pip-audit, and zizmor respectively), `enable_mutation_tests` emits a scheduled `mutation.yml`, and `enable_changelog` emits a PR-only `changelog.yml`. The always-on `ci.yml` runs the `just ci` gate on a Python-version matrix covering every interpreter at or above the project's `requires-python` floor (a single leg for the `3.13` default).
 
 ## Requirements
 

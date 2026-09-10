@@ -1,0 +1,50 @@
+name: changelog
+
+on:
+  pull_request:
+    # `types:` REPLACES the defaults (opened, synchronize, reopened), so they are listed
+    # alongside labeled/unlabeled: without the label events, adding `skip-changelog`
+    # to an open PR would never re-run this check.
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: changelog-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changelog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Full history so the base branch is reachable for the three-dot diff.
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Require a CHANGELOG entry for template-visible changes
+        # The label is honoured inside the step, not in a job-level `if:`, so the check
+        # always reports a pass — a job skipped by `if:` shows as "skipped", which blocks
+        # the merge when this check is required.
+        env:
+          BASE_REF: ${{ github.base_ref }}
+          SKIP: ${{ contains(github.event.pull_request.labels.*.name, 'skip-changelog') }}
+        run: |
+          if [ "$SKIP" = "true" ]; then
+            echo "changelog: skip-changelog label present; entry not required"
+            exit 0
+          fi
+          base="origin/$BASE_REF"
+          # Fail closed: an unresolvable base (a shallow checkout) must not pass vacuously.
+          git rev-parse --verify --quiet "$base" >/dev/null \
+            || { echo "::error::cannot resolve $base; the checkout needs fetch-depth: 0"; exit 1; }
+          # "An entry" means at least one non-empty added line — a deletion or a
+          # whitespace-only touch of CHANGELOG.md does not count.
+          if [ -n "$(git diff --name-only "$base...HEAD" -- template copier.yml)" ] \
+             && [ -z "$(git diff -U0 "$base...HEAD" -- CHANGELOG.md | grep '^+[^+]')" ]; then
+            echo "::error::template/ or copier.yml changed without a new CHANGELOG.md line; add an entry under [Unreleased] or label the PR skip-changelog"
+            exit 1
+          fi
+          echo "changelog: ok"

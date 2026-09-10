@@ -42,7 +42,11 @@ Put it in `tests/property/`. It MUST set `pytestmark = pytest.mark.property` and
 ## Dependencies
 
 `uv add <pkg>` (runtime) or `uv add --dev <pkg>` (tooling). `uv.lock` is committed; CI runs `uv sync --locked`.
-{% if enable_policy_tests %}
+{% if enable_changelog %}
+## Changelog
+
+A PR that changes `src/` or `pyproject.toml` must add an entry under `## [Unreleased]` in `CHANGELOG.md`{% if not in_existing_repo %} (CI: `changelog.yml`), or carry the `skip-changelog` label (create it once: `gh label create skip-changelog`){% endif %}. Promote the entries under a version heading in each release commit.
+{% endif %}{% if enable_policy_tests %}
 ## Meta-guardrail
 
 Changing a gate (coverage floor, ruff select, type mode{% if enable_sha_pin_policy %}, Action pins{% endif %}) requires editing the matching test in `tests/policy/` in the SAME commit.

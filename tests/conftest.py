@@ -139,7 +139,9 @@ def render(template_root: Path) -> RenderFn:
     return _render
 
 
-def run_in(project: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
+def run_in(
+    project: Path, *args: str, check: bool = True, env: dict[str, str] | None = None
+) -> subprocess.CompletedProcess[str]:
     """Run a command inside a rendered project; capture output for assertions."""
     # A rendered project's own tooling (`just ci`, `uv run ...`) must not inherit the
     # maintainer's interpreter pins, or uv rebuilds its venv against the wrong Python.
@@ -149,5 +151,5 @@ def run_in(project: Path, *args: str, check: bool = True) -> subprocess.Complete
         check=check,
         capture_output=True,
         text=True,
-        env=_clean_env(),
+        env=_clean_env() | (env or {}),
     )

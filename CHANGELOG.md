@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `enable_changelog` toggle (default `true`): ships a Keep-a-Changelog `CHANGELOG.md` and a
+  PR-only `changelog.yml` check that fails when `src/` or `pyproject.toml` change without a
+  new `CHANGELOG.md` line; the `skip-changelog` label bypasses it. CI-only, no recipe.
+
 ## [0.2.0] - 2026-09-02
 
 ### Added

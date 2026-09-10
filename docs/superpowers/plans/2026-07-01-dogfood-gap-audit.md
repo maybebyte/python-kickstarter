@@ -1,6 +1,6 @@
 # Dogfooding-gap audit — python-kickstarter (2026-07-01)
 
-> **Status (2026-09-08).** Phase 1 landed: gap 1 (PR #6), gap 2 (#7), gap 5 (#8), gaps 7 + 3 (#9), gaps 4 + 8 (#10), gap 6 (`chore/dogfood-renovate`; the Mend app install is the operator step). **Gap 9 deferred:** copier's validators are prompt-time Jinja, not importable, so fuzzing them costs one copier render per example, and the TOML escaper already has round-trip tests. **Candidate F deferred:** the `scan` CI job bundles pip-audit + semgrep + gitleaks as three steps that do not map onto the `audit`/`scan` recipe split (see AGENTS.md "Run every gate"). Phases 2 and 3 not started; first Phase 2 layer is the CHANGELOG-`[Unreleased]` PR check.
+> **Status (2026-09-08).** Phase 1 landed: gap 1 (PR #6), gap 2 (#7), gap 5 (#8), gaps 7 + 3 (#9), gaps 4 + 8 (#10), gap 6 (`chore/dogfood-renovate`; the Mend app install is the operator step). **Gap 9 deferred:** copier's validators are prompt-time Jinja, not importable, so fuzzing them costs one copier render per example, and the TOML escaper already has round-trip tests. **Candidate F deferred:** the `scan` CI job bundles pip-audit + semgrep + gitleaks as three steps that do not map onto the `audit`/`scan` recipe split (see AGENTS.md "Run every gate"). **Phase 2 started (2026-09-10):** the CHANGELOG-`[Unreleased]` PR check landed as the `enable_changelog` template layer and was dogfooded in the same PR (#26, `feat/changelog-check`; release pending). Phase 3 not started.
 
 ## 1. Executive summary
 
