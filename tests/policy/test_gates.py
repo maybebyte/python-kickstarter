@@ -49,6 +49,23 @@ def test_gitleaks_pin_matches_template() -> None:
     assert f"gitleaks (`{ours.group(1)}`)" in (ROOT / "AGENTS.md").read_text()
 
 
+def test_changelog_check_literals() -> None:
+    """The maintainer's changelog.yml keeps the mechanics the generation suite proves.
+
+    The suite runs the rendered template's script; this copy is hand-written with its own
+    pathspec, so its load-bearing literals are pinned here.
+    """
+    workflow = (ROOT / ".github" / "workflows" / "changelog.yml").read_text()
+    assert "types: [opened, synchronize, reopened, labeled, unlabeled]" in workflow
+    assert "push:" not in workflow
+    assert "BASE_REF: ${{ github.base_ref }}" in workflow
+    assert "contains(github.event.pull_request.labels.*.name, 'skip-changelog')" in workflow
+    assert not re.search(r"^\s*if:", workflow, re.MULTILINE)
+    assert 'git rev-parse --verify --quiet "$base"' in workflow
+    assert '-- template copier.yml)" ]' in workflow
+    assert "-- CHANGELOG.md | grep '^+[^+]')\" ]" in workflow
+
+
 def test_actions_are_sha_pinned() -> None:
     """Every third-party `uses:` is a 40-char SHA + a v-prefixed version comment."""
     # SHA + a version comment (v<major>[.minor[.patch]]); our pins carry the action's

@@ -205,6 +205,9 @@ enable_renovate:
 enable_sha_pin_policy:
   type: bool
   default: true
+enable_changelog:
+  type: bool
+  default: true
 
 # Hidden helper (never prompted). The generation-test harness passes this as False
 # (see tests/conftest.py) to skip the slow pre-commit hook-install task; a real
