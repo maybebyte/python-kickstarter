@@ -21,7 +21,7 @@ dev = [
     "pytest>=8,<10",
     "pyyaml>=6,<7",
     "basedpyright>=1.39,<1.40",
-    "ruff>=0.15,<0.16",
+    "ruff>=0.16,<0.17",
     "pre-commit>=4,<5",
 ]
 
