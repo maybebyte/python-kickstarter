@@ -108,7 +108,7 @@ jobs:
         run: uvx semgrep@1.167.0 scan --config .semgrep.yml --metrics=off --error .
       # gitleaks is installed from the mise.toml pin (single source of truth);
       # install: false brings up the mise CLI only.
-      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+      - uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
         with:
           install: false
       - name: gitleaks
