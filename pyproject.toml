@@ -20,7 +20,7 @@ dev = [
     "plumbum>=1.8,<3",
     "pytest>=8,<10",
     "pyyaml>=6,<7",
-    "basedpyright>=1.39,<1.40",
+    "basedpyright>=1.40,<1.41",
     "ruff>=0.15,<0.16",
     "pre-commit>=4,<5",
 ]
