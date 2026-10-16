@@ -107,10 +107,13 @@ jobs:
       - name: semgrep
         run: uvx semgrep@1.167.0 scan --config .semgrep.yml --metrics=off --error .
       # gitleaks is installed from the mise.toml pin (single source of truth);
-      # install: false brings up the mise CLI only.
+      # install: false brings up the mise CLI only. persist_github_token
+      # re-exports MISE_GITHUB_TOKEN (v5.1.1+ default is off) so the later
+      # `mise install`/`mise exec` calls api.github.com authenticated.
       - uses: jdx/mise-action@9b200bcecbfd6303e69a4a261b2e09e3757440a7 # v5.2.0
         with:
           install: false
+          persist_github_token: true
       - name: gitleaks
         run: |
           mise install gitleaks
