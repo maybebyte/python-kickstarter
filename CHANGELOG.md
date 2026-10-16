@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   PR-only `changelog.yml` check that fails when `src/` or `pyproject.toml` change without a
   new `CHANGELOG.md` line; the `skip-changelog` label bypasses it. CI-only, no recipe.
 
+### Changed
+
+- Bump the generated project's ruff to `>=0.17,<0.18` (and the shipped `ruff-pre-commit`
+  hook to v0.17.1). Under `ruff_ruleset = "all"`, ignore `CPY001`, which ruff 0.17 stabilised
+  and would otherwise demand a copyright header in every file.
+
 ## [0.2.0] - 2026-09-02
 
 ### Added
