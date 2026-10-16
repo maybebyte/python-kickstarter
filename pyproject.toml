@@ -20,7 +20,7 @@ dev = [
     "plumbum>=1.8,<3",
     "pytest>=8,<10",
     "pyyaml>=6,<7",
-    "basedpyright>=1.39,<1.40",
+    "basedpyright>=1.40,<1.41",
     "ruff>=0.15,<0.16",
     "pre-commit>=4,<5",
 ]
@@ -35,7 +35,7 @@ addopts = ["-q", "--strict-markers", "--strict-config", "--import-mode=importlib
 typeCheckingMode = "recommended"   # basedpyright's default; matches what the template ships
 failOnWarnings = true              # declare the gate's teeth explicitly (recommended defaults
                                    # it true, but pin it so a future mode/version drift under
-                                   # the <1.40 cap cannot silently un-fail the build)
+                                   # the basedpyright cap cannot silently un-fail the build)
 pythonVersion = "3.11"             # the requires-python floor
 include = ["tests"]                # the only Python surface; there is no src/
 exclude = ["template", "**/__pycache__", "**/.venv"]  # template/ is Jinja, never Python
