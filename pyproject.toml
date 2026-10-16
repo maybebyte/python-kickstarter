@@ -21,7 +21,7 @@ dev = [
     "pytest>=8,<10",
     "pyyaml>=6,<7",
     "basedpyright>=1.40,<1.41",
-    "ruff>=0.15,<0.16",
+    "ruff>=0.17,<0.18",
     "pre-commit>=4,<5",
 ]
 
@@ -44,13 +44,18 @@ reportMissingImports = "error"
 [tool.ruff]
 line-length = 100
 target-version = "py311"            # the requires-python floor (template uses the chosen python_version)
-extend-exclude = ["template"]       # parity with basedpyright; template/ is Jinja, count-neutral
+extend-exclude = [
+    "template",                     # parity with basedpyright; template/ is Jinja, count-neutral
+    "docs",                         # frozen spec/plan records: ruff 0.17 includes *.md by default and
+                                    # would rewrite their diff-fragment snippets
+]
 
 [tool.ruff.lint]
 select = ["ALL"]
 ignore = [
     "COM812",   # formatter-owned: conflicts with `ruff format` (ruff's own formatter-compat guidance)
     "ISC001",   # formatter-owned: the documented companion to COM812 under `ruff format`
+    "CPY001",   # ISC-licensed repo with no per-file copyright-header convention (stable in ruff 0.17)
 ]
 
 [tool.ruff.lint.mccabe]

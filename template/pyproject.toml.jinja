@@ -27,7 +27,7 @@ package = false
 
 [dependency-groups]
 dev = [
-    "ruff>=0.15,<0.16",
+    "ruff>=0.17,<0.18",
     # recommended mode is version-coupled like ruff's ALL set: it tracks every basedpyright
     # rule, so a new minor can turn a green tree red — cap it and bump deliberately.
     "basedpyright>=1.39,<1.40",
@@ -55,6 +55,7 @@ select = ["ALL"]
 ignore = [
     "E501", "ANN401", "PLR0913", "PLR2004", "TD002", "TD003", "FIX002",
     "EM101", "EM102", "TRY003", "D100", "D203", "D213", "COM812", "ISC001",
+    "CPY001",
 ]
 {%- else -%}
 select = ["E", "F", "UP", "B", "SIM", "I", "ANN", "S", "C4", "DTZ", "PTH", "RUF", "PL"]
