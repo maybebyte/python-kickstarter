@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Pin uv 0.13.4 in generated mise and CI configuration to use the patched TLS trust bundle.
 - Bump the generated project's ruff to `>=0.17,<0.18` (and the shipped `ruff-pre-commit`
   hook to v0.17.1). Under `ruff_ruleset = "all"`, ignore `CPY001`, which ruff 0.17 stabilised
   and would otherwise demand a copyright header in every file.
