@@ -10,10 +10,15 @@ default:
 # `test` is the full generation matrix: give it a roomy TMPDIR (the default 4G tmpfs
 # /tmp can overflow) — see "Run every gate" in AGENTS.md. Scanners and the changelog check
 # stay CI-only (off `ci`).
-ci: fmt-check lint typecheck test policy audit
+ci: fmt-check lint typecheck test policy audit automation-ci
     @echo "ci: all gates passed"
 
 verify: ci
+
+# The independently generated helper keeps its own lockfile and complete gate.
+automation-ci:
+    uv sync --locked --project automation
+    just --justfile automation/justfile ci
 
 # Run the template generation + update tests
 test:

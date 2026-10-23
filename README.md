@@ -56,6 +56,16 @@ Beyond the local recipes, several toggles also emit GitHub Actions workflows: `e
 
 See `AGENTS.md` for the template extension contract (adding guardrail layers, releasing, CI pinning rules).
 
+## Agent development workflow
+
+The separate [`automation/`](automation/README.md) project provides the helper for
+isolated Python development. The portable [`workflow/SKILL.md`](workflow/SKILL.md)
+defines preparation, verification and reviewed return for Hermes, Claude Code and
+Codex while preserving each host's task authority. Neither is rendered into
+downstream projects. Live skill installation and fresh-session discovery are
+separate from building and testing the helper; see the
+[routing guide](workflow/references/host-routing.md).
+
 ## License
 
 ISC — see [`LICENSE`](LICENSE). Generated projects get their own license, chosen at copy time (`MIT`, `Apache-2.0`, `ISC`, or `proprietary`).
