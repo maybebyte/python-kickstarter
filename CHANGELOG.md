@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   PR-only `changelog.yml` check that fails when `src/` or `pyproject.toml` change without a
   new `CHANGELOG.md` line; the `skip-changelog` label bypasses it. CI-only, no recipe.
 
+### Fixed
+
+- Keep Semgrep's native engine working when uv selects Python 3.15: bound an unlimited
+  hard stack to 1 GiB only inside the scanner child. Preserve finite limits, scanner
+  pins, rules and targets, and leave the caller and later gitleaks stage unchanged.
+
 ### Changed
 
 - Pin uv 0.13.4 in generated mise and CI configuration to use the patched TLS trust bundle.

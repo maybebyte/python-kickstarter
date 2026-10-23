@@ -40,7 +40,21 @@ jobs:
 {%- endif %}
 {%- if enable_scanners %}
       - name: semgrep
-        run: uvx semgrep@1.167.0 scan --config .semgrep.yml --metrics=off --error .
+        run: |
+          # Bound only this child: Python 3.15 exposes an unsigned RLIM_INFINITY.
+          # Bash -s uses KiB; 1048576 KiB = 1 GiB, above Semgrep's 1,000,000,000-byte soft target.
+          # Include equality below: Bash rounds soft-limit reads down to whole KiB.
+          (
+              hard_stack=$(ulimit -H -s) || exit;
+              if [[ "$hard_stack" == unlimited ]]; then
+                  soft_stack=$(ulimit -S -s) || exit;
+                  if [[ "$soft_stack" == unlimited ]] || (( soft_stack >= 1048576 )); then
+                      ulimit -S -s 1048576 || exit;
+                  fi;
+                  ulimit -H -s 1048576 || exit;
+              fi;
+              uvx semgrep@1.167.0 scan --config .semgrep.yml --metrics=off --error .;
+          )
       # gitleaks is installed from the mise.toml pin (single source of truth, kept fresh
       # by Renovate's native mise manager); install: false brings up the mise CLI only.
       - uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
