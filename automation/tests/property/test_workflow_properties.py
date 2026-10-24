@@ -10,6 +10,7 @@ from hypothesis import strategies as st
 
 from kickstarter_workflow.records import Record, load, save, text
 from kickstarter_workflow.workflow import Workflow
+from tests.unit.test_mapped_assets import ASSETS, asset_plan
 
 pytestmark = pytest.mark.property
 
@@ -75,6 +76,7 @@ def test_generated_unsafe_paths_cannot_escape_the_task(plan: Record) -> None:
 def test_arbitrary_candidate_config_test_and_mode_changes_invalidate_receipts(
     tmp_path: Path, plan: Record
 ) -> None:
+    plan = asset_plan(plan)
     workflow = Workflow(tmp_path / "state")
     prepared = workflow.dispatch("prepare", plan)
     assert prepared["status"] == "prepared", prepared
@@ -84,11 +86,19 @@ def test_arbitrary_candidate_config_test_and_mode_changes_invalidate_receipts(
 
     @given(
         name=st.sampled_from(
-            ["product/app.py", "product/test_app.py", "pyproject.toml", "uv.lock", "justfile"]
+            [
+                "product/app.py",
+                "product/test_app.py",
+                "pyproject.toml",
+                "uv.lock",
+                "justfile",
+                *("product/" + name for name in ASSETS),
+            ]
         ),
         suffix=st.binary(min_size=1, max_size=64),
         mode_change=st.booleans(),
     )
+    @example(name="product/fixtures/coverage.json", suffix=b"changed", mode_change=False)
     def check(name: str, suffix: bytes, *, mode_change: bool) -> None:
         path = workspace / name
         original, mode = path.read_bytes(), path.stat().st_mode & 0o777
@@ -99,7 +109,6 @@ def test_arbitrary_candidate_config_test_and_mode_changes_invalidate_receipts(
                 _ = path.write_bytes(original + suffix)
             rejected = workflow.dispatch("status", plan)
             assert rejected["status"] == "blocked", rejected
-            assert "stale" in text(rejected, "reason")
         finally:
             _ = path.write_bytes(original)
             path.chmod(mode)

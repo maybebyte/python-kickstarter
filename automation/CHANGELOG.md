@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Bind explicitly declared fixture assets despite report/cache discovery exclusions, and require concrete fingerprints for reviewed transfer and effect accounting.
+- Reuse the documented `gh:maybebyte/python-kickstarter` Copier origin without relaxing canonical-cache or exact approved-revision validation.
+
 - Exclude Git control files from product inventories so linked worktrees and separate-git-dir sources prepare without copying administrative pointers.
 - Keep mapped test paths literal through generated recipes and refuse unsupported parser syntax before tool execution.
 - Preserve mapped initializer bytes and prepare all-new source/test declarations without supplying their payloads.

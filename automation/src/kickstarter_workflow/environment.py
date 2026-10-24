@@ -42,7 +42,9 @@ def _local_package(plan: Record, source: Path, metadata: Record, content: str) -
         raise WorkflowError("only the static default uv_build package layout is supported")
     _ = _strings(build.get("requires"), "build requirements")
     mapped = {text(item, "source"): text(item, "target") for item in mappings(plan)}
-    if any(mapped.get(name) != "product/" + name for name in inventory(source)):
+    if any(
+        mapped.get(name) != "product/" + name for name in inventory(source, plan, destination=True)
+    ):
         raise WorkflowError(
             "packaged environment requires complete layout-preserving source/assets mapping"
         )

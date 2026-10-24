@@ -49,7 +49,10 @@ and outside scratch/cache expiry policies. It must be owned by the caller, mode 
 
 All mappings are explicit **files**, not directory globs. Include runtime code,
 maintained tests, imported local dependencies, fixtures, assets and relevant context.
-The full original tree is separately inventoried and copied for repository checks.
+Explicit declarations remain inventoried even when their names resemble generated reports
+or caches (for example, `fixtures/coverage.json`). Git/environment control paths,
+links and special files remain forbidden. The full original tree is separately
+inventoried and copied for repository checks.
 The scope review is a human-reviewed declaration, not proof of adequate coverage.
 An omitted dependency, meaningless assertion, or missing CI obligation remains a
 review finding even when mechanically selected checks pass.
@@ -122,7 +125,10 @@ Modes:
   copy its scaffold back to the product.
 - **`existing`**: existing Kickstarter repository. Copy its complete relevant tree
   into an isolated task repository; validate and preserve its answers/configuration.
-  Use identical source/target mappings. No regeneration or upgrade occurs.
+  Use identical source/target mappings. No regeneration or upgrade occurs. The
+  documented `gh:maybebyte/python-kickstarter` origin is accepted alongside the
+  canonical HTTPS origin and the validated local cache path; the cache must still
+  be canonical and the recorded revision must resolve to the exact approved commit.
 - **`new`**: generate at the explicitly authorized, nonexistent `source` destination.
   Use identical source/target mappings. Set `isolate_git: true` only when explicitly
   authorizing a new independent Git root beneath an existing ancestor. Unchanged

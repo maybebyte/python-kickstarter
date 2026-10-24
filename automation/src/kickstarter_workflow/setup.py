@@ -129,16 +129,22 @@ def _generate(plan: Record, workspace: Path, cache: Path, revision: str, runner:
     git_root(runner, workspace)
 
 
-def _reuse(source: Path, workspace: Path, cache: Path, revision: str, runner: Runner) -> None:
+def _reuse(
+    source: Path, workspace: Path, cache: Path, revision: str, runner: Runner, files: Record
+) -> None:
     answers = (source / ".copier-answers.yml").read_text()
     origin = re.search(r"^_src_path: (.+)$", answers, re.MULTILINE)
     commit = re.search(r"^_commit: ([a-zA-Z0-9.\-]+)$", answers, re.MULTILINE)
-    if origin is None or origin[1] not in {CANONICAL, str(cache)} or commit is None:
+    if (
+        origin is None
+        or origin[1] not in {CANONICAL, "gh:maybebyte/python-kickstarter", str(cache)}
+        or commit is None
+    ):
         raise WorkflowError("existing project lacks canonical Copier provenance")
     if runner.run(["git", "rev-parse", "--verify", commit[1] + "^{commit}"], cache) != revision:
         raise WorkflowError("existing project revision differs; upgrades are separate")
     workspace.mkdir(mode=0o700)
-    copy_inventory(source, workspace, inventory(source))
+    copy_inventory(source, workspace, files)
     _ = runner.run(
         ["git", "-c", "init.templateDir=", "init", "--quiet", str(workspace)], workspace.parent
     )
@@ -200,12 +206,12 @@ def prepare(plan: Record, task: Path, runner: Runner) -> Record:
         before: Record = {}
     else:
         git_root(runner, source)
-        before = inventory(source)
+        before = inventory(source, plan, destination=True)
         snapshot = task / "baseline"
         snapshot.mkdir(mode=0o700)
         copy_inventory(source, snapshot, before)
         if mode == "existing":
-            _reuse(source, workspace, cache, revision, runner)
+            _reuse(source, workspace, cache, revision, runner, before)
         else:
             if (source / ".copier-answers.yml").exists():
                 raise WorkflowError("generated project must use existing mode")
@@ -213,7 +219,7 @@ def prepare(plan: Record, task: Path, runner: Runner) -> Record:
             copy_mapping(plan, source, workspace)
             _adapt_workbench(plan, workspace)
             adapt_environment(plan, source, workspace)
-        if inventory(source) != before:
+        if inventory(source, plan, destination=True) != before:
             raise WorkflowError("source changed during preparation")
     gate_policy(workspace, existing=mode == "existing")
     git_sha256 = retain(source, task, runner)
@@ -224,7 +230,7 @@ def prepare(plan: Record, task: Path, runner: Runner) -> Record:
         workspace,
     )
     save(task / "source.json", before)
-    save(task / "scaffold.json", inventory(workspace))
+    save(task / "scaffold.json", inventory(workspace, plan))
     return {
         "status": "prepared",
         "plan": plan,

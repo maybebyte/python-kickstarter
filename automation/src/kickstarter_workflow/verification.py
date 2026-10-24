@@ -33,9 +33,10 @@ from kickstarter_workflow.setup import git_root
 def binding(state: Record, runner: Runner) -> Record:
     """Bind all candidate bytes/modes, immutable plan, and actual tool identities."""
     workspace = Path(text(state, "workspace"))
+    plan = object_value(state, "plan")
     return {
         "interpreter": environment_identity(workspace),
-        "candidate": inventory(workspace),
+        "candidate": inventory(workspace, plan),
         "plan": object_value(state, "plan"),
         "tools": runner.identities(workspace),
         "git": identity(workspace, runner),
@@ -72,7 +73,7 @@ def _repository(plan: Record, task: Path, workspace: Path, runner: Runner) -> Pa
         target.chmod(candidate.stat().st_mode & 0o777)
     _ = runner.run(["git", "-c", "init.templateDir=", "init", "--quiet", str(root)], task)
     restore(task, root, runner)
-    stage_candidate(root, runner)
+    stage_candidate(root, runner, inventory(root, plan, destination=True))
     return root
 
 
@@ -95,11 +96,14 @@ def repository_checks(plan: Record, root: Path, workspace: Path, runner: Runner)
             raise WorkflowError("invalid repository check policy")
         commands.extend(string_list({"argv": check}, "argv") for check in required)
     runner.env["PYTHONPATH"] = os_path(root, names(plan, "source", destination=True))
-    before: Record = {"files": inventory(root), "git": identity(root, runner)}
+    before: Record = {
+        "files": inventory(root, plan, destination=True),
+        "git": identity(root, runner),
+    }
     save(runner.evidence / ("repository-inputs-" + uuid.uuid4().hex + ".json"), before)
     for command in commands:
         _ = runner.run(command, root)
-    if {"files": inventory(root), "git": identity(root, runner)} != before:
+    if {"files": inventory(root, plan, destination=True), "git": identity(root, runner)} != before:
         raise WorkflowError("repository inputs changed while checks were running")
 
 
@@ -172,16 +176,16 @@ def verify(state: Record, task: Path, runner: Runner) -> Record:
     """Run all mandatory gates and publish a candidate-bound receipt only on success."""
     plan = object_value(state, "plan")
     workspace = Path(text(state, "workspace"))
-    if plan["mode"] != "new" and inventory(Path(text(plan, "source"))) != load(
-        task / "source.json"
-    ):
+    if plan["mode"] != "new" and inventory(
+        Path(text(plan, "source")), plan, destination=True
+    ) != load(task / "source.json"):
         raise WorkflowError(
             "source changed since preparation; return reconciliation or a decision is required"
         )
     git_root(runner, workspace)
     gate_policy(workspace, existing=plan["mode"] == "existing")
     baseline = load(task / "scaffold.json")
-    current = inventory(workspace)
+    current = inventory(workspace, plan)
     protected = {
         name
         for name in baseline
@@ -197,21 +201,21 @@ def verify(state: Record, task: Path, runner: Runner) -> Record:
             raise WorkflowError("empty or missing product target")
     if plan["mode"] == "new":
         scaffold = load(task / "scaffold.json")
-        candidate = inventory(workspace)
+        candidate = inventory(workspace, plan)
         if all(scaffold.get(name) == candidate.get(name) for name in names(plan, "test")):
             raise WorkflowError("scaffold-only tests are not product evidence")
     runner.env["PYTHONPATH"] = os_path(workspace, names(plan, "source"))
     _ = runner.run(["uv", "sync", "--locked"], workspace)
-    stage_candidate(workspace, runner)
+    stage_candidate(workspace, runner, inventory(workspace, plan))
     before = binding(state, runner)
     _ = runner.run(["just", "ci"], workspace)
     product = product_evidence(plan, workspace, workspace, runner)
     repository_checks(plan, _repository(plan, task, workspace, runner), workspace, runner)
     if binding(state, runner) != before:
         raise WorkflowError("candidate changed while checks were running")
-    if plan["mode"] != "new" and inventory(Path(text(plan, "source"))) != load(
-        task / "source.json"
-    ):
+    if plan["mode"] != "new" and inventory(
+        Path(text(plan, "source")), plan, destination=True
+    ) != load(task / "source.json"):
         raise WorkflowError("source changed while checks were running")
     receipt: Record = {"binding": before, **product, "status": "passed"}
     receipt["artifacts"] = {

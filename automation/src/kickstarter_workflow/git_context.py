@@ -2,7 +2,6 @@
 
 from pathlib import Path
 
-from kickstarter_workflow.files import inventory
 from kickstarter_workflow.process import Runner
 from kickstarter_workflow.records import (
     Record,
@@ -118,9 +117,8 @@ def restore(task: Path, root: Path, runner: Runner) -> None:
         raise WorkflowError("repository Git context was not faithfully restored")
 
 
-def stage_candidate(root: Path, runner: Runner) -> None:
+def stage_candidate(root: Path, runner: Runner, files: Record) -> None:
     """Enroll exact candidate bytes without filters, ignores or source-index writes."""
-    files = inventory(root)
     if not files:
         raise WorkflowError("empty repository candidate")
     _ = runner.run(["git", "read-tree", "--empty"], root)

@@ -38,8 +38,8 @@ def confined(root: Path, relative: str) -> Path:
     return no_links(root / relative)
 
 
-def inventory(root: Path) -> Record:
-    """Fingerprint all relevant regular files and modes; reject special files."""
+def inventory(root: Path, plan: Record | None = None, *, destination: bool = False) -> Record:
+    """Fingerprint regular files, including declared assets excluded from discovery."""
     _ = no_links(root)
     result: Record = {}
     for directory, directories, files in os.walk(
@@ -54,14 +54,21 @@ def inventory(root: Path) -> Record:
             if name == ".git" or name in REPORTS or name.endswith((".pyc", ".pyo")):
                 continue
             path = current / name
-            metadata = path.stat()
-            if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
-                raise WorkflowError("inventory requires independent regular files")
-            result[path.relative_to(root).as_posix()] = {
-                "sha256": digest(path.read_bytes()),
-                "mode": stat.S_IMODE(metadata.st_mode),
-            }
+            result[path.relative_to(root).as_posix()] = _fingerprint(path)
+    if plan is not None:
+        for item in mappings(plan):
+            name = text(item, "source" if destination else "target")
+            path = confined(root, name)
+            if path.exists():
+                result[name] = _fingerprint(path)
     return result
+
+
+def _fingerprint(path: Path) -> Record:
+    metadata = path.stat()
+    if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
+        raise WorkflowError("inventory requires independent regular files")
+    return {"sha256": digest(path.read_bytes()), "mode": stat.S_IMODE(metadata.st_mode)}
 
 
 def _raise_scan_error(error: OSError) -> None:

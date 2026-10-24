@@ -41,7 +41,7 @@ def validate_preparation(state: Record, task: Path, runner: Runner) -> None:
         if not (task / "baseline").is_dir():
             raise WorkflowError("retained baseline is missing")
         private_directory(task / "baseline")
-        if inventory(task / "baseline") != load(task / "source.json"):
+        if inventory(task / "baseline", plan, destination=True) != load(task / "source.json"):
             raise WorkflowError("retained baseline is missing or changed")
     git_root(runner, workspace)
     validate(state, task, runner)
@@ -50,7 +50,7 @@ def validate_preparation(state: Record, task: Path, runner: Runner) -> None:
     _, revision = template(plan, runner)
     if revision != state.get("template_revision") or runner.identities(task) != state.get("tools"):
         raise WorkflowError("stale setup provenance")
-    baseline, current = load(task / "scaffold.json"), inventory(workspace)
+    baseline, current = load(task / "scaffold.json"), inventory(workspace, plan)
     protected = {
         name
         for name in baseline

@@ -83,12 +83,12 @@ def _reconcile(state: Record, task: Path, runner: Runner) -> tuple[Record, bool]
     plan = object_value(state, "plan")
     source = Path(text(plan, "source"))
     before = load(task / "source.json")
-    current = inventory(source)
+    current = inventory(source, plan, destination=True)
     if current == before:
         return state, False
     merged: list[tuple[Path, bytes, int]] = []
     workspace = Path(text(state, "workspace"))
-    candidate_inventory = inventory(workspace)
+    candidate_inventory = inventory(workspace, plan)
     for item in mappings(plan):
         name, target = text(item, "source"), text(item, "target")
         if current.get(name) == before.get(name):
@@ -110,7 +110,7 @@ def _reconcile(state: Record, task: Path, runner: Runner) -> tuple[Record, bool]
     save(task / "source.json", current)
     state = {**state, "source_sha256": digest((task / "source.json").read_bytes())}
     updated = verify(state, task, runner.child())
-    if inventory(workspace) != candidate_inventory:
+    if inventory(workspace, plan) != candidate_inventory:
         report = task / ("reconciliation-" + text(updated, "receipt") + ".diff")
         _ = report.write_text(diff)
         updated.update(
@@ -146,7 +146,7 @@ def _journal(
 ) -> Record:
     plan = object_value(state, "plan")
     source, workspace = Path(text(plan, "source")), Path(text(state, "workspace"))
-    current, candidate = inventory(source), inventory(workspace)
+    current, candidate = inventory(source, plan, destination=True), inventory(workspace, plan)
     entries: Record = {}
     for item in mappings(plan):
         name, target = text(item, "source"), text(item, "target")
@@ -155,7 +155,7 @@ def _journal(
         if name in allowlist:
             entries[name] = {
                 "before": current.get(name),
-                "after": candidate.get(target),
+                "after": object_value(candidate, target),
                 "target": target,
             }
     journal: Record = {
@@ -191,29 +191,33 @@ def _replace(candidate: Path, destination: Path) -> None:
 def effects(journal: Record) -> list[str]:
     """Report actual applied paths even after interruption before a journal update."""
     state = object_value(journal, "state")
-    source = Path(text(object_value(state, "plan"), "source"))
-    current = inventory(source)
+    plan = object_value(state, "plan")
+    source = Path(text(plan, "source"))
+    current = inventory(source, plan, destination=True)
     return [
         name
         for name, entry in object_value(journal, "entries").items()
-        if isinstance(entry, dict) and current.get(name) == entry.get("after")
+        if isinstance(entry, dict)
+        and isinstance(entry.get("after"), dict)
+        and current.get(name) == entry["after"]
     ]
 
 
 def _apply(journal: Record, task: Path) -> None:
     state = object_value(journal, "state")
-    source = Path(text(object_value(state, "plan"), "source"))
+    plan = object_value(state, "plan")
+    source = Path(text(plan, "source"))
     workspace = Path(text(state, "workspace"))
     entries = object_value(journal, "entries")
-    current = inventory(source)
+    current = inventory(source, plan, destination=True)
     for name in entries:
         entry = object_value(entries, name)
         if current.get(name) not in (entry.get("before"), entry.get("after")):
             raise WorkflowError("destination changed during interrupted return; decision required")
     for name in entries:
         entry = object_value(entries, name)
-        fresh = inventory(source).get(name)
-        if fresh == entry.get("after"):
+        fresh = inventory(source, plan, destination=True).get(name)
+        if fresh == object_value(entry, "after"):
             continue
         if fresh != entry.get("before"):
             raise WorkflowError("destination changed immediately before transfer")
@@ -266,7 +270,7 @@ def _validate_destination(journal: Record, task: Path, runner: Runner) -> Record
     state = object_value(journal, "state")
     plan = object_value(state, "plan")
     source, workspace = Path(text(plan, "source")), Path(text(state, "workspace"))
-    before = inventory(source)
+    before = inventory(source, plan, destination=True)
     transferred = effects(journal)
     expected = dict(object_value(journal, "destination_before"))
     entries = object_value(journal, "entries")
@@ -278,10 +282,10 @@ def _validate_destination(journal: Record, task: Path, runner: Runner) -> Record
         _require_inventory(before, expected)
         repository_checks(plan, source, workspace, runner)
         measured = product_evidence(plan, source, workspace, runner, destination=True)
-        _require_inventory(inventory(source), before)
+        _require_inventory(inventory(source, plan, destination=True), before)
         _ = validate_receipt(state, task, runner)
     except (WorkflowError, OSError, ValueError) as error:
-        current = inventory(source)
+        current = inventory(source, plan, destination=True)
         changes: list[Value] = [
             name
             for name in sorted(before.keys() | current.keys())
@@ -306,7 +310,7 @@ def _validate_destination(journal: Record, task: Path, runner: Runner) -> Record
         {
             "status": "returned",
             "applied": list(effects(journal)),
-            "destination": inventory(source),
+            "destination": inventory(source, plan, destination=True),
             "destination_evidence": str(runner.evidence),
         }
     )
@@ -325,8 +329,9 @@ def cleanup(state: Record, task: Path) -> Record:
     """Remove resolved task workspace only; retain records and raw diagnostics."""
     if state["status"] not in {"returned", "exempt", "cleaned"}:
         raise WorkflowError("unresolved work must be preserved")
+    plan = object_value(state, "plan")
     workspace = task / "workspace"
     if workspace.exists():
-        _ = inventory(workspace)
+        _ = inventory(workspace, plan)
         shutil.rmtree(workspace)
     return {**state, "status": "cleaned"}
