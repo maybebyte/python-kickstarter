@@ -19,7 +19,7 @@ def test_cli_emits_structured_exemption_and_rejects_invalid_input(
     )
     args = ["--state", str(tmp_path / "state"), "prepare", str(request)]
     assert main(args) == 0
-    assert '"status": "exempt"' in capsys.readouterr().out
+    assert json.loads(capsys.readouterr().out)["status"] == "exempt"
     _ = request.write_text("not json")
     assert main(args) == 2
-    assert '"status": "blocked"' in capsys.readouterr().out
+    assert json.loads(capsys.readouterr().out)["status"] == "blocked"

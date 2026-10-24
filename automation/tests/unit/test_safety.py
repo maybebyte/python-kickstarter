@@ -26,13 +26,18 @@ def test_pending_state_write_blocks_resume_instead_of_reusing_old_readiness(tmp_
         "mode": "disposable",
         "reason": "diagnostic",
     }
-    assert workflow.dispatch("prepare", request)["status"] == "exempt"
-    pending = tmp_path / "state/sample/one/task.pending"
-    _ = pending.write_text('{"status": "preparing"}')
+    prepared = workflow.dispatch("prepare", request)
+    assert prepared["status"] == "exempt"
+    assert workflow.dispatch("resume", request)["status"] == "exempt"
+    task = tmp_path / "state/sample/one/task.json"
+    before = task.read_bytes()
+    pending = task.with_suffix(".pending")
+    unfinished = b'{"status": "preparing"}'
+    _ = pending.write_bytes(unfinished)
     result = workflow.dispatch("resume", request)
     assert result["status"] == "blocked", result
-    assert "pending" in text(result, "reason")
-    assert pending.exists()
+    assert pending.read_bytes() == unfinished
+    assert task.read_bytes() == before
 
 
 @pytest.mark.parametrize(
