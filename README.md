@@ -45,6 +45,22 @@ All toggles default to `true` — every guardrail layer ships unless you opt out
 
 Beyond the local recipes, several toggles also emit GitHub Actions workflows: `enable_scanners`, `enable_dependency_audit`, and `enable_sha_pin_policy` each contribute steps to a generated `scan.yml` (semgrep + gitleaks, pip-audit, and zizmor respectively), `enable_mutation_tests` emits a scheduled `mutation.yml`, and `enable_changelog` emits a PR-only `changelog.yml`. The always-on `ci.yml` runs the `just ci` gate on a Python-version matrix covering every interpreter at or above the project's `requires-python` floor (a single leg for the `3.13` default).
 
+## Scanner resource isolation
+
+Semgrep 1.167.0 can misinterpret Python 3.15's positive unlimited-stack sentinel.
+The scan recipe and CI step therefore give only the scanner child a finite hard
+stack of 1 GiB when its inherited hard stack is unlimited. Bash measures `ulimit -s`
+in KiB: `1048576` KiB is `1073741824` bytes, enough for Semgrep's existing
+`1000000000`-byte soft-stack target. Already-finite hard limits are unchanged;
+only an unlimited or oversized soft limit is lowered to fit the new ceiling.
+Limit read/set failures stop the scan before launching Semgrep. The caller,
+gitleaks and other gates retain their original limits.
+
+This small Bash block is repeated at the standalone delivery boundaries (maintainer,
+helper, generated recipe and CI steps), so generated projects need no new launcher
+file and the existing inline CI layout remains intact. Scanner versions, rules,
+metrics settings, targets and failure propagation are unchanged.
+
 ## Requirements
 
 - Python ≥ 3.11
@@ -55,6 +71,16 @@ Beyond the local recipes, several toggles also emit GitHub Actions workflows: `e
 ## Maintainers
 
 See `AGENTS.md` for the template extension contract (adding guardrail layers, releasing, CI pinning rules).
+
+## Agent development workflow
+
+The separate [`automation/`](automation/README.md) project provides the helper for
+isolated Python development. The portable [`workflow/SKILL.md`](workflow/SKILL.md)
+defines preparation, verification and reviewed return for Hermes, Claude Code and
+Codex while preserving each host's task authority. Neither is rendered into
+downstream projects. Live skill installation and fresh-session discovery are
+separate from building and testing the helper; see the
+[routing guide](workflow/references/host-routing.md).
 
 ## License
 

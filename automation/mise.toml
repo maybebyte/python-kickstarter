@@ -1,0 +1,7 @@
+[tools]
+python = "3.11"
+uv = "0.13.4"
+just = "1.50.0"
+copier = "9.15.2"
+# scanner-only tool; pinned here so Renovate's mise manager keeps it fresh.
+gitleaks = "8.30.1"

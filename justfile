@@ -10,10 +10,15 @@ default:
 # `test` is the full generation matrix: give it a roomy TMPDIR (the default 4G tmpfs
 # /tmp can overflow) — see "Run every gate" in AGENTS.md. Scanners and the changelog check
 # stay CI-only (off `ci`).
-ci: fmt-check lint typecheck test policy audit
+ci: fmt-check lint typecheck test policy audit automation-ci
     @echo "ci: all gates passed"
 
 verify: ci
+
+# The independently generated helper keeps its own lockfile and complete gate.
+automation-ci:
+    uv sync --locked --project automation
+    just --justfile automation/justfile ci
 
 # Run the template generation + update tests
 test:
@@ -58,7 +63,20 @@ precommit:
 
 # Out-of-band secret + SAST scan (semgrep + gitleaks); enforced in CI by the `scan` job, not `ci`.
 scan:
-    uvx semgrep@1.167.0 scan --config .semgrep.yml --metrics=off --error .
+    # Bound only this child: Python 3.15 exposes an unsigned RLIM_INFINITY.
+    # Bash -s uses KiB; 1048576 KiB = 1 GiB, above Semgrep's 1,000,000,000-byte soft target.
+    # Include equality below: Bash rounds soft-limit reads down to whole KiB.
+    ( \
+        hard_stack=$(ulimit -H -s) || exit; \
+        if [[ "$hard_stack" == unlimited ]]; then \
+            soft_stack=$(ulimit -S -s) || exit; \
+            if [[ "$soft_stack" == unlimited ]] || (( soft_stack >= 1048576 )); then \
+                ulimit -S -s 1048576 || exit; \
+            fi; \
+            ulimit -H -s 1048576 || exit; \
+        fi; \
+        uvx semgrep@1.167.0 scan --config .semgrep.yml --metrics=off --error .; \
+    )
     # `git` (not `dir`): scan committed history like CI, catching secrets committed then deleted.
     gitleaks git . --redact --exit-code 1
 

@@ -13,6 +13,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  automation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: "0.13.4"
+          enable-cache: true
+          python-version: "3.11"
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
+      - name: Verify automation helper
+        env:
+          TMPDIR: ${{ runner.temp }}
+          HYPOTHESIS_PROFILE: ci
+        run: just automation-ci
+
   test:
     strategy:
       fail-fast: false
@@ -28,7 +48,7 @@ jobs:
           persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
-          version: "0.11.23"
+          version: "0.13.4"
           enable-cache: true
           python-version: ${{ matrix.python-version }}
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
@@ -46,7 +66,7 @@ jobs:
           persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
-          version: "0.11.23"
+          version: "0.13.4"
           enable-cache: true
       - name: zizmor (workflow audit)
         env:
@@ -62,7 +82,7 @@ jobs:
           persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
-          version: "0.11.23"
+          version: "0.13.4"
           enable-cache: true
       - name: Install dependencies
         run: uv sync --locked
@@ -78,7 +98,7 @@ jobs:
           persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
-          version: "0.11.23"
+          version: "0.13.4"
           enable-cache: true
       - name: Install dependencies
         run: uv sync --locked
@@ -98,14 +118,28 @@ jobs:
           persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
-          version: "0.11.23"
+          version: "0.13.4"
           enable-cache: true
       - name: pip-audit
         run: |
           uv export --frozen --no-emit-project --no-hashes -o requirements-audit.txt
           uvx pip-audit@2.10.1 -r requirements-audit.txt
       - name: semgrep
-        run: uvx semgrep@1.167.0 scan --config .semgrep.yml --metrics=off --error .
+        run: |
+          # Bound only this child: Python 3.15 exposes an unsigned RLIM_INFINITY.
+          # Bash -s uses KiB; 1048576 KiB = 1 GiB, above Semgrep's 1,000,000,000-byte soft target.
+          # Include equality below: Bash rounds soft-limit reads down to whole KiB.
+          (
+              hard_stack=$(ulimit -H -s) || exit;
+              if [[ "$hard_stack" == unlimited ]]; then
+                  soft_stack=$(ulimit -S -s) || exit;
+                  if [[ "$soft_stack" == unlimited ]] || (( soft_stack >= 1048576 )); then
+                      ulimit -S -s 1048576 || exit;
+                  fi;
+                  ulimit -H -s 1048576 || exit;
+              fi;
+              uvx semgrep@1.167.0 scan --config .semgrep.yml --metrics=off --error .;
+          )
       # gitleaks is installed from the mise.toml pin (single source of truth);
       # install: false brings up the mise CLI only. persist_github_token
       # re-exports MISE_GITHUB_TOKEN (v5.1.1+ default is off) so the later
