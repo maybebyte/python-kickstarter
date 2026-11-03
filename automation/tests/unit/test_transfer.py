@@ -2,7 +2,9 @@
 
 import os
 import signal
+import traceback
 from pathlib import Path
+from typing import NoReturn
 
 import pytest
 
@@ -21,6 +23,21 @@ def review(receipt: str, *files: str) -> Record:
             "allowlist": list(files),
         },
     }
+
+
+def return_child(workflow: Workflow, request: Record) -> NoReturn:
+    exit_code = 75
+    try:
+        _ = signal.signal(signal.SIGINT, signal.default_int_handler)
+        _ = workflow.dispatch("return", request)
+        exit_code = 74
+    except KeyboardInterrupt:
+        exit_code = 73
+    except BaseException:
+        traceback.print_exc()
+        raise
+    finally:
+        os._exit(exit_code)
 
 
 @pytest.mark.parametrize("drift", ["content", "mode"])
@@ -86,12 +103,7 @@ def test_interrupted_return_reports_actual_effects_and_retry_does_not_rewrite_th
         fault.setattr(Path, "replace", interrupt)
         pid = os.fork()
         if pid == 0:
-            _ = signal.signal(signal.SIGINT, signal.default_int_handler)
-            try:
-                _ = workflow.dispatch("return", request)
-            except KeyboardInterrupt:
-                os._exit(73)
-            os._exit(74)
+            return_child(workflow, request)
     _, status = os.waitpid(pid, 0)
     assert os.waitstatus_to_exitcode(status) == 73
     observed = workflow.dispatch("status", plan)

@@ -60,7 +60,7 @@ class Workflow:
         return Runner(
             object_value(plan, "tools"),
             task / ("run-" + uuid.uuid4().hex),
-            self.state_root / "cache",
+            self.state_root / ".cache",
         )
 
     def _read_state(self, task: Path) -> Record:

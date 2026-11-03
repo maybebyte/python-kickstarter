@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Explain source-drift recovery without suggesting return reconciliation can admit a blocked task.
+- Create a private temporary fallback only when TMPDIR is absent, preserving explicit caller values.
+- Separate internal tool caches from valid project/task identifiers without moving retained caches or interpreter bindings.
 - Bind explicitly declared fixture assets despite report/cache discovery exclusions, and require concrete fingerprints for reviewed transfer and effect accounting.
 - Reuse the documented `gh:maybebyte/python-kickstarter` Copier origin without relaxing canonical-cache or exact approved-revision validation.
 
@@ -28,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- A required helper development-toolchain audit alongside the unchanged runtime-only audit.
 - JSON CLI and Python interface for task-owned prepare/resume, verification, reviewed return and explicit cleanup.
 - Real pinned Copier generation, existing-project reuse, disposable promotion, complete product mappings and private external records.
 - Helper-owned raw command results, real product test/branch-coverage evidence, candidate/mode/config/tool-bound receipts, and fail-closed stale/failed/interrupted evidence handling.

@@ -1,6 +1,7 @@
 """Generated public-interface safety invariants, with isolated example state."""
 
 import os
+import sys
 import tempfile
 from pathlib import Path
 
@@ -8,26 +9,53 @@ import pytest
 from hypothesis import example, given
 from hypothesis import strategies as st
 
+from kickstarter_workflow.process import Runner, default_tools
 from kickstarter_workflow.records import Record, load, save, text
 from kickstarter_workflow.workflow import Workflow
 from tests.unit.test_mapped_assets import ASSETS, asset_plan
+from tests.unit.test_process import PROBE
 
 pytestmark = pytest.mark.property
 
 
+@given(value=st.text(alphabet="abcXYZ012/._- 'é\"\\\n\t", max_size=64))
+@example(value="")
+def test_explicit_tmpdir_reaches_children_without_normalization(value: str) -> None:
+    with tempfile.TemporaryDirectory(dir=os.environ.get("TMPDIR")) as directory:
+        root = Path(directory)
+        with pytest.MonkeyPatch.context() as caller:
+            caller.setenv("TMPDIR", value)
+            runner = Runner(
+                {**default_tools(), "just": sys.executable}, root / "evidence", root / "cache"
+            )
+            _ = runner.run(["just", str(PROBE)], root)
+        assert load(runner.last_output)["TMPDIR"] == value
+        assert not (root / "cache").exists()
+
+
 @given(
-    st.lists(
+    operations=st.lists(
         st.sampled_from(["prepare", "resume", "status", "verify", "return", "cleanup"]),
         min_size=1,
         max_size=15,
-    )
+    ),
+    project=st.one_of(st.just("cache"), st.from_regex(r"[a-z][a-z0-9_-]{0,63}", fullmatch=True)),
+    task=st.one_of(
+        st.sampled_from(["uv", "python", "tmp"]),
+        st.from_regex(r"[a-z][a-z0-9_-]{0,63}", fullmatch=True),
+    ),
 )
-def test_disposable_lifecycle_never_grants_production_evidence(operations: list[str]) -> None:
+@example(operations=["prepare", "resume", "cleanup"], project="cache", task="uv")
+@example(operations=["prepare", "status", "cleanup"], project="cache", task="python")
+@example(operations=["prepare", "verify", "return"], project="cache", task="tmp")
+def test_disposable_lifecycle_never_grants_production_evidence(
+    operations: list[str], project: str, task: str
+) -> None:
     with tempfile.TemporaryDirectory(dir=os.environ.get("TMPDIR")) as directory:
         workflow = Workflow(Path(directory) / "state")
         request: Record = {
-            "project": "example",
-            "task": "one",
+            "project": project,
+            "task": task,
             "mode": "disposable",
             "reason": "temporary diagnostic",
         }

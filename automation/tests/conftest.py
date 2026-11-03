@@ -11,6 +11,26 @@ from kickstarter_workflow.records import Record
 PIN = "37adbeeea53a242ed25db602a35b9d719d95c8ae"
 CANONICAL = "https://github.com/maybebyte/python-kickstarter.git"
 
+# Repository selectors must not escape into fixture Git or Copier children.
+# Keep transport/config overrides: documented-origin and controlled-config tests use them.
+REPOSITORY_ENV = frozenset(
+    {
+        "GIT_DIR",
+        "GIT_WORK_TREE",
+        "GIT_INDEX_FILE",
+        "GIT_OBJECT_DIRECTORY",
+        "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+        "GIT_COMMON_DIR",
+        "GIT_PREFIX",
+        "GIT_IMPLICIT_WORK_TREE",
+        "GIT_GRAFT_FILE",
+        "GIT_SHALLOW_FILE",
+        "GIT_NAMESPACE",
+        "GIT_REPLACE_REF_BASE",
+        "GIT_NO_REPLACE_OBJECTS",
+    }
+)
+
 
 def command(*args: str, cwd: Path) -> None:
     executable = shutil.which(args[0])
@@ -18,7 +38,8 @@ def command(*args: str, cwd: Path) -> None:
     old = Path.cwd()
     os.chdir(cwd)
     try:
-        pid = os.posix_spawn(executable, args, dict(os.environ))
+        environment = {key: value for key, value in os.environ.items() if key not in REPOSITORY_ENV}
+        pid = os.posix_spawn(executable, args, environment)
         _, status = os.waitpid(pid, 0)
         assert os.waitstatus_to_exitcode(status) == 0
     finally:

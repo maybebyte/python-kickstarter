@@ -11,3 +11,4 @@ htmlcov/
 coverage.xml
 .coverage
 requirements-audit.txt
+requirements-audit-dev.txt

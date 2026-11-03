@@ -11,10 +11,12 @@ uv sync --locked
 just ci
 ```
 
-The unchanged generated gate includes Ruff ALL, recommended basedpyright,
+The generated gate includes Ruff ALL, recommended basedpyright,
 unit tests with **85% branch coverage**, Hypothesis, policy tests, and the runtime
-dependency audit. Runtime dependencies are empty; that audit is not a development
-dependency audit. The locked development group includes Copier **9.15.2** and uv
+dependency audit. Runtime dependencies are empty; that audit remains runtime-only.
+The helper adds `audit-dev` to `ci` to audit the full locked development graph,
+including the audit tool's dependencies, without re-resolving the exported pins.
+Both audits require the advisory service and propagate failures. The locked development group includes Copier **9.15.2** and uv
 **0.13.4**. Integration tests invoke those tools and require Git and just on PATH,
 network access for task-local development environments, and a roomy `TMPDIR`.
 No helper test installs hooks.
@@ -44,6 +46,11 @@ and, after verification, receipt identity and measured product tests/coverage.
 Diagnostics are local metadata containing absolute paths, not a portable identity
 or a shareable report. Keep the durable state directory outside source repositories
 and outside scratch/cache expiry policies. It must be owned by the caller, mode 0700.
+Internal tool storage uses `.cache` beneath that directory, outside the project/task
+identifier namespace. Existing `cache` contents are retained: older environments
+can still bind interpreters there. No automatic cache migration or deletion occurs.
+When `TMPDIR` is absent, the helper creates and validates a private fallback there;
+explicit values, including an empty value, are passed through unchanged.
 
 ### Plan
 

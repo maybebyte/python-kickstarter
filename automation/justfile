@@ -4,7 +4,7 @@ default:
     @just --list
 
 # The complete local gate — every PR-blocking check reproducible locally.
-ci: fmt-check lint typecheck test fuzz policy audit
+ci: fmt-check lint typecheck test fuzz policy audit audit-dev
     @echo "ci: all gates passed"
 
 verify: ci
@@ -37,6 +37,12 @@ audit:
     uv export --frozen --no-emit-project --no-dev --no-hashes -o requirements-audit.txt
     uv run pip-audit -r requirements-audit.txt
     rm -f requirements-audit.txt
+
+# Audit the helper's full locked toolchain in addition to the generated runtime gate.
+audit-dev:
+    uv export --frozen --no-emit-project --no-hashes -o requirements-audit-dev.txt
+    uv run pip-audit --no-deps --disable-pip -r requirements-audit-dev.txt
+    rm -f requirements-audit-dev.txt
 
 # Slow / out-of-band (also runs in CI on its own cron, non-gating).
 mutate:

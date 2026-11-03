@@ -213,7 +213,34 @@ def test_source_changes_are_not_certified_as_unchanged(tmp_path: Path, plan: Rec
     prepared = workflow.dispatch("prepare", plan)
     assert prepared["status"] == "prepared", prepared
     source = Path(text(plan, "source"))
-    _ = (source / "app.py").write_text('"""Newer source belongs to another task."""\n')
+    workspace = Path(text(prepared, "workspace"))
+    app = workspace / "product/app.py"
+    _ = app.write_text(app.read_text().replace("value * 2", "value + value"))
+    verified = workflow.dispatch("verify", plan)
+    assert verified["status"] == "verified", verified
+    receipt = workspace.parent / "receipts" / (text(verified, "receipt") + ".json")
+    retained = receipt.read_bytes()
+    candidate = app.read_bytes()
+    snapshot = (workspace.parent / "source.json").read_bytes()
+    original = (source / "app.py").read_text()
+    newer = original.replace("A maintained calculation.", "A calculation another task now owns.")
+    assert newer != original
+    _ = (source / "app.py").write_text(newer)
     result = workflow.dispatch("verify", plan)
     assert result["status"] == "blocked", result
-    assert "source changed" in text(result, "reason")
+    assert isinstance(result["reason"], str)
+    assert workflow.dispatch("status", plan)["status"] == "blocked"
+    review: Record = {
+        "receipt": text(verified, "receipt"),
+        "reviewer": "independent-test-review",
+        "reason": "Named product delta reviewed.",
+        "allowlist": ["app.py"],
+    }
+    refused = workflow.dispatch("return", {"project": "sample", "task": "one", "review": review})
+    assert refused["status"] == "blocked", refused
+    assert (source / "app.py").read_bytes() == newer.encode()
+    assert app.read_bytes() == candidate
+    assert (workspace.parent / "source.json").read_bytes() == snapshot
+    assert not (workspace.parent / "return.json").exists()
+    assert sorted(receipt.parent.iterdir()) == [receipt]
+    assert receipt.read_bytes() == retained

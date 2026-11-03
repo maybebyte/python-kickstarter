@@ -54,6 +54,8 @@ class Runner:
             if not path.is_absolute() or not path.is_file() or not os.access(path, os.X_OK):
                 raise WorkflowError(f"missing executable tool: {name}")
             self.tools[name] = str(path.resolve())
+        if "TMPDIR" not in os.environ:
+            private_directory(cache / "tmp")
         self.env: dict[str, str] = {
             "HOME": str(Path.home()),
             "PATH": os.pathsep.join(

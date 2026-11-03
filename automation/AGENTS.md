@@ -21,7 +21,7 @@ just ci            # the complete gate — must be green before pushing
 
 ## The gate
 
-`just ci` is the COMPLETE fast gate: fmt-check, lint, typecheck, test+coverage, fuzz, policy, audit. Out-of-band: `just mutate` (mutation, non-gating); `just scan` (semgrep + gitleaks).
+`just ci` is the COMPLETE fast gate: fmt-check, lint, typecheck, test+coverage, fuzz, policy, audit, audit-dev. The additive `audit-dev` checks the full locked development toolchain; the generated runtime-only `audit` remains separate. Both audits query the advisory service and block CI on failure. Out-of-band: `just mutate` (mutation, non-gating); `just scan` (semgrep + gitleaks).
 
 ## Add a behavior test
 

@@ -180,7 +180,7 @@ def verify(state: Record, task: Path, runner: Runner) -> Record:
         Path(text(plan, "source")), plan, destination=True
     ) != load(task / "source.json"):
         raise WorkflowError(
-            "source changed since preparation; return reconciliation or a decision is required"
+            "source changed since preparation; work is preserved. Prepare a new task from the current source, then reapply and verify the intended changes."
         )
     git_root(runner, workspace)
     gate_policy(workspace, existing=plan["mode"] == "existing")
