@@ -1,0 +1,125 @@
+[project]
+# PEP 503 distribution name: MUST be the validated slug, NOT the free-text
+# project_name. "Demo Project" (spaces/caps) is not a valid name and `uv lock`
+# — run by the copy-only _tasks on every render — aborts the whole generation.
+name = "kickstarter_workflow"
+version = "0.1.0"
+# description / author_* are free text: escape backslash and double-quote so a value
+# like `A "great" project` stays a valid TOML basic string — an unescaped " would break
+# parsing and abort the copy-time `uv lock` (the package_name slug is already validated).
+description = "Prepare and verify isolated Python development workspaces."
+authors = [{ name = "Ashlen", email = "dev@anthes.is" }]
+requires-python = ">=3.11"
+readme = "README.md"
+license = "ISC"
+dependencies = []
+
+[project.scripts]
+kickstarter-workflow = "kickstarter_workflow.__main__:main"
+
+[build-system]
+requires = ["uv_build>=0.11.23,<0.12"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "copier==9.15.2",
+    "uv==0.13.4",
+    "ruff>=0.17,<0.18",
+    # recommended mode is version-coupled like ruff's ALL set: it tracks every basedpyright
+    # rule, so a new minor can turn a green tree red — cap it and bump deliberately.
+    "basedpyright>=1.39,<1.40",
+    "pytest>=8,<10",
+    "pytest-cov>=5,<8",
+    "pre-commit>=4,<5",
+    "hypothesis>=6",
+    "mutmut>=3.6",
+    "pip-audit>=2.10",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "E501", "ANN401", "PLR0913", "PLR2004", "TD002", "TD003", "FIX002",
+    "EM101", "EM102", "TRY003", "D100", "D203", "D213", "COM812", "ISC001",
+    "CPY001",
+]
+
+# max-complexity governs C901 (mccabe), active only under select=ALL; the curated
+# ruleset omits the C90 prefix, so this block would be dead config there (like pydocstyle).
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.pylint]
+max-args = 8
+max-branches = 12
+max-returns = 6
+max-statements = 50
+
+# Only meaningful under select=ALL, which activates the pydocstyle (D) rules; the
+# curated ruleset omits D, so this block would be dead config there.
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.isort]
+known-first-party = ["kickstarter_workflow"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "PLR2004", "ANN", "D", "INP001", "SLF001"]
+
+[tool.ruff.format]
+quote-style = "double"
+docstring-code-format = true
+
+[tool.basedpyright]
+typeCheckingMode = "recommended"
+pythonVersion = "3.11"
+include = ["src", "tests"]
+reportMissingImports = "error"
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+markers = [
+    "property: property-based Hypothesis tests (deselect with -m 'not property')",
+]
+addopts = [
+    "-q",
+    "--strict-markers",
+    "--strict-config",
+    "--import-mode=importlib",
+    "--cov=kickstarter_workflow",
+    "--cov-branch",
+    "--cov-report=term-missing",
+    "--cov-report=xml",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["kickstarter_workflow"]
+
+[tool.coverage.paths]
+source = ["src/kickstarter_workflow", "*/site-packages/kickstarter_workflow"]
+
+[tool.coverage.report]
+fail_under = 85
+show_missing = true
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "@(abc\\.)?abstractmethod",
+]
+
+[tool.mutmut]
+source_paths = ["src/kickstarter_workflow"]
+pytest_add_cli_args_test_selection = ["tests/unit"]
+# --no-cov (not `-p no:cov`): the cov plugin must stay loaded so the project's
+# addopts `--cov` flags remain valid args; `-p no:cov` unloads it and pytest then
+# rejects `--cov`, so mutmut silently leaves every mutant "not checked".
+pytest_add_cli_args = ["--no-cov"]
+mutate_only_covered_lines = false
